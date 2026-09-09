@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.4.0
+  FINAL BASE v1.5.0
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="config.js">
@@ -75,6 +75,26 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
    VERIFIED ACCOUNT REGISTRATION
 ========================================================= */
 .login-switch{margin-top:14px;text-align:center}.text-link{border:0;background:transparent;color:var(--blue);font-weight:700;cursor:pointer;text-decoration:underline}.reg-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.reg-switch button{padding:10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--blue);font-weight:700;cursor:pointer}.reg-switch button.active{background:var(--blue);color:#fff}
+
+.p-page,
+.p-cover {
+  position: relative;
+}
+
+.p-page-number {
+  position: absolute;
+  right: 8mm;
+  bottom: 4mm;
+  font-size: 9px;
+  color: #666;
+}
+
+@media print {
+  .p-page-number {
+    display: block !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -512,7 +532,17 @@ function renderRegistrationForm() {
 }
 
 async function sendRegistrationOtp() {
+  const button =
+    $('regSendOtpBtn');
+
   try {
+    setBusyButton(
+      button,
+      true,
+      'Sending OTP...',
+      'Send Email OTP'
+    );
+
     showLoading(
       'Checking official data and sending Email OTP...'
     );
@@ -566,13 +596,25 @@ async function sendRegistrationOtp() {
       'hide'
     );
 
-    regSendOtpBtn.textContent =
-      'Resend Email OTP';
-
     regOtpMessage.textContent =
       'OTP sent to ' +
       result.maskedEmail +
-      '.';
+      '. OTP expires soon.';
+
+    if (
+      REGISTRATION_RESEND_TIMER
+    ) {
+      clearInterval(
+        REGISTRATION_RESEND_TIMER
+      );
+    }
+
+    REGISTRATION_RESEND_TIMER =
+      startButtonCountdown(
+        button,
+        60,
+        'Resend Email OTP'
+      );
 
   } catch (error) {
     alert(
@@ -724,6 +766,21 @@ async function submitRegistration() {
 let PASSWORD_RESET_OTP_REQUEST_ID =
   '';
 
+let REGISTRATION_RESEND_TIMER =
+  null;
+
+let PASSWORD_RESET_RESEND_TIMER =
+  null;
+
+let SHARED_SYNC_TIMER =
+  null;
+
+let SHARED_REMOTE_REVISION =
+  null;
+
+let CLUB_REPORT_HISTORY =
+  [];
+
 function openForgotPassword() {
   PASSWORD_RESET_OTP_REQUEST_ID =
     '';
@@ -824,7 +881,17 @@ function openForgotPassword() {
 }
 
 async function sendPasswordResetOtp() {
+  const button =
+    $('resetSendOtpBtn');
+
   try {
+    setBusyButton(
+      button,
+      true,
+      'Sending OTP...',
+      'Send Reset OTP'
+    );
+
     showLoading(
       'Sending reset OTP...'
     );
@@ -848,13 +915,25 @@ async function sendPasswordResetOtp() {
       'hide'
     );
 
-    resetSendOtpBtn.textContent =
-      'Resend Reset OTP';
-
     resetOtpMessage.textContent =
       'OTP sent to ' +
       result.maskedEmail +
       '.';
+
+    if (
+      PASSWORD_RESET_RESEND_TIMER
+    ) {
+      clearInterval(
+        PASSWORD_RESET_RESEND_TIMER
+      );
+    }
+
+    PASSWORD_RESET_RESEND_TIMER =
+      startButtonCountdown(
+        button,
+        60,
+        'Resend Reset OTP'
+      );
 
   } catch (error) {
     alert(
@@ -934,6 +1013,186 @@ async function completePasswordReset() {
   }
 }
 
+/* =========================================================
+   OTP UX HELPERS
+========================================================= */
+
+function startButtonCountdown(
+  button,
+  seconds,
+  normalText
+) {
+  let remaining =
+    seconds;
+
+  button.disabled =
+    true;
+
+  button.textContent =
+    'Resend in ' +
+    remaining +
+    's';
+
+  const timer = setInterval(
+    () => {
+      remaining--;
+
+      if (
+        remaining <=
+        0
+      ) {
+        clearInterval(
+          timer
+        );
+
+        button.disabled =
+          false;
+
+        button.textContent =
+          normalText;
+
+        return;
+      }
+
+      button.textContent =
+        'Resend in ' +
+        remaining +
+        's';
+    },
+    1000
+  );
+
+  return timer;
+}
+
+
+function setBusyButton(
+  button,
+  busy,
+  busyText,
+  normalText
+) {
+  if (!button) {
+    return;
+  }
+
+  button.disabled =
+    busy;
+
+  button.textContent =
+    busy
+      ? busyText
+      : normalText;
+}
+
+
+/* =========================================================
+   LIVE SHARED REPORT STATUS
+========================================================= */
+
+function stopSharedSync() {
+  if (
+    SHARED_SYNC_TIMER
+  ) {
+    clearInterval(
+      SHARED_SYNC_TIMER
+    );
+
+    SHARED_SYNC_TIMER =
+      null;
+  }
+}
+
+
+function startSharedSync() {
+  stopSharedSync();
+
+  if (
+    !CURRENT_REPORT ||
+    CURRENT_REPORT.master.Status ===
+      'SUBMITTED'
+  ) {
+    return;
+  }
+
+  SHARED_SYNC_TIMER =
+    setInterval(
+      checkSharedReportRevision,
+      30000
+    );
+}
+
+
+async function checkSharedReportRevision() {
+  if (
+    !CURRENT_REPORT ||
+    CURRENT_REPORT.master.Status ===
+      'SUBMITTED'
+  ) {
+    return;
+  }
+
+  try {
+    const data = await api(
+      'getReport',
+      {
+        reportId:
+          CURRENT_REPORT.master.ReportID
+      }
+    );
+
+    const remoteRevision =
+      Number(
+        data.report.master.Revision ||
+        1
+      );
+
+    const localRevision =
+      Number(
+        CURRENT_REPORT.master.Revision ||
+        1
+      );
+
+    if (
+      remoteRevision >
+      localRevision
+    ) {
+      SHARED_REMOTE_REVISION =
+        remoteRevision;
+
+      const banner = $(
+        'sharedUpdateBanner'
+      );
+
+      if (banner) {
+        banner.classList.remove(
+          'hide'
+        );
+
+        banner.innerHTML = `
+          अर्को President/Secretary login बाट यो report update भएको छ।
+          Latest Revision:
+          <b>${remoteRevision}</b>
+          <button
+            class="btn btn-light"
+            style="margin-left:8px"
+            onclick="reloadLatestSharedReport()"
+          >
+            Reload Latest
+          </button>
+        `;
+      }
+    }
+
+  } catch (error) {
+    console.warn(
+      'Shared revision check failed:',
+      error.message
+    );
+  }
+}
+
+
 async function login(){
   try{showLoading('Logging in...');
 
@@ -1006,27 +1265,419 @@ if(btn)btn.classList.add('active');
 
 $('club'+name[0].toUpperCase()+name.slice(1)+'Tab').classList.remove('hide')}
 
-async function loadClubDashboard(){
-  try{showLoading('Loading dashboard...');
+async function loadClubDashboard() {
+  try {
+    showLoading(
+      'Loading dashboard...'
+    );
 
-const d=await api('clubDashboard');
+    const data = await api(
+      'clubDashboard'
+    );
 
-CLUB=d.club;
+    CLUB =
+      data.club;
 
-    clubDashboardTab.innerHTML=`<div class="grid g3"><div class="kpi"><span>Club</span><strong style="font-size:19px">${esc(CLUB?.ClubName||USER.clubId)}</strong><small>${esc(CLUB?.ZoneName||CLUB?.ZoneID||'')}</small></div><div class="kpi"><span>Report History</span><strong>${d.reports.length}</strong><small>Draft + Submitted</small></div><div class="kpi"><span>Current Month</span><strong style="font-size:22px">${currentMonth()}</strong></div></div>
-    <div class="card" style="margin-top:14px"><div class="section-title"><h3>My Reports</h3><div class="spacer"></div><button class="btn btn-gold" onclick="startReport()">+ New Report</button></div><div class="table-wrap"><table><thead><tr><th>Month</th><th>Status</th><th>Members</th><th>Submitted</th><th>Action</th></tr></thead><tbody>${d.reports.map(r=>`<tr><td>${esc(r.ReportingMonth)}</td><td><span class="status st-${esc(r.Status)}">${esc(r.Status)}</span></td><td>${esc(r.TotalMembers||0)}</td><td>${esc(r.SubmittedAt||'-')}</td><td><div class="actions"><button class="btn btn-light" onclick="openReport('${esc(r.ReportID)}')">${['DRAFT','CORRECTION'].includes(r.Status)?'Edit':'View'}</button>${r.Status==='SUBMITTED'?`<button class="btn btn-light" onclick="printReportById('${esc(r.ReportID)}')">PDF / Print</button><button class="btn btn-light" onclick="askCorrection('${esc(r.ReportID)}')">Correction</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
+    CLUB_REPORT_HISTORY =
+      data.reports ||
+      [];
 
+    const years = [
+      ...new Set(
+        CLUB_REPORT_HISTORY
+          .map(
+            report =>
+              String(
+                report.FiscalYear ||
+                ''
+              )
+          )
+          .filter(Boolean)
+      )
+    ].sort().reverse();
+
+    clubDashboardTab.innerHTML = `
+      <div class="grid g3">
+        <div class="kpi">
+          <span>Club</span>
+          <strong style="font-size:19px">
+            ${esc(CLUB?.ClubName || USER.clubId)}
+          </strong>
+          <small>
+            ${esc(CLUB?.ZoneName || CLUB?.ZoneID || '')}
+          </small>
+        </div>
+
+        <div class="kpi">
+          <span>Report History</span>
+          <strong>${CLUB_REPORT_HISTORY.length}</strong>
+          <small>Draft + Submitted</small>
+        </div>
+
+        <div class="kpi">
+          <span>Current Month</span>
+          <strong style="font-size:22px">
+            ${currentMonth()}
+          </strong>
+        </div>
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <div class="section-title">
+          <h3>My Reports</h3>
+
+          <div class="spacer"></div>
+
+          <button
+            class="btn btn-gold"
+            onclick="startReport()"
+          >
+            + New Report
+          </button>
+        </div>
+
+        <div class="toolbar">
+          <div class="field">
+            <label>Fiscal Year</label>
+
+            <select
+              id="historyFiscalYear"
+              onchange="renderClubReportHistory()"
+            >
+              <option value="">All Years</option>
+              ${years.map(year => `
+                <option value="${esc(year)}">
+                  ${esc(year)}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Reporting Month</label>
+
+            <input
+              id="historyMonth"
+              type="month"
+              onchange="renderClubReportHistory()"
+            >
+          </div>
+
+          <button
+            class="btn btn-light"
+            onclick="clearClubHistoryFilter()"
+          >
+            Clear Filter
+          </button>
+        </div>
+
+        <div id="clubReportHistoryTable"></div>
+      </div>
+    `;
+
+    renderClubReportHistory();
     renderClubProfile();
 
-  }catch(e){clubDashboardTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}
+  } catch (error) {
+    clubDashboardTab.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
 }
 
-function renderClubProfile(){clubProfileTab.innerHTML=`<div class="card">
-<h3>Club Profile</h3>
-<div class="notice ok">
-President र Secretary दुवैले यही एउटै shared Club Profile edit गर्छन्।
-Logo/Profile update भएपछि दुवै login मा latest data देखिन्छ।
-</div><div class="grid g2"><div><div class="field"><label>Club Logo</label><input type="file" id="clubLogoFile" accept="image/*"></div>${CLUB?.ClubLogoURL?`<img class="logo-preview" src="${esc(CLUB.ClubLogoURL)}">`:''}</div><div></div><div class="field"><label>Club Name</label><input id="pfClubName" value="${esc(CLUB?.ClubName||'')}"></div><div class="field"><label>Charter Date</label><input id="pfCharterDate" type="date" value="${dateOnly(CLUB?.CharterDate)}"></div><div class="field"><label>President</label><input id="pfPresident" value="${esc(CLUB?.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="pfSecretary" value="${esc(CLUB?.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="pfEmail" value="${esc(CLUB?.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="pfPhone" value="${esc(CLUB?.ClubPhone||'')}"></div><div class="field"><label>Zone</label><input value="${esc(CLUB?.ZoneID||'')} — ${esc(CLUB?.ZoneName||'')}" disabled></div></div><div class="actions"><button class="btn btn-primary" onclick="saveClubProfile()">Save Profile</button><button class="btn btn-light" onclick="uploadClubLogo()">Upload Logo</button></div></div>`}
+
+function clearClubHistoryFilter() {
+  if (
+    $('historyFiscalYear')
+  ) {
+    historyFiscalYear.value =
+      '';
+  }
+
+  if (
+    $('historyMonth')
+  ) {
+    historyMonth.value =
+      '';
+  }
+
+  renderClubReportHistory();
+}
+
+
+function renderClubReportHistory() {
+  const year =
+    $('historyFiscalYear')
+      ? historyFiscalYear.value
+      : '';
+
+  const month =
+    $('historyMonth')
+      ? historyMonth.value
+      : '';
+
+  const rows = CLUB_REPORT_HISTORY.filter(
+    report => {
+      const yearMatch =
+        !year ||
+        String(
+          report.FiscalYear ||
+          ''
+        ) ===
+          year;
+
+      const monthMatch =
+        !month ||
+        String(
+          report.ReportingMonth ||
+          ''
+        ) ===
+          month;
+
+      return (
+        yearMatch &&
+        monthMatch
+      );
+    }
+  );
+
+  const container = $(
+    'clubReportHistoryTable'
+  );
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fiscal Year</th>
+            <th>Month</th>
+            <th>Status</th>
+            <th>Revision</th>
+            <th>Members</th>
+            <th>Last Saved</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${rows.map(report => `
+            <tr>
+              <td>${esc(report.FiscalYear || '-')}</td>
+              <td>${esc(report.ReportingMonth)}</td>
+
+              <td>
+                <span class="status st-${esc(report.Status)}">
+                  ${esc(report.Status)}
+                </span>
+              </td>
+
+              <td>${esc(report.Revision || 1)}</td>
+              <td>${esc(report.TotalMembers || 0)}</td>
+              <td>${esc(report.LastSavedAt || report.UpdatedAt || '-')}</td>
+              <td>${esc(report.SubmittedAt || '-')}</td>
+
+              <td>
+                <div class="actions">
+                  <button
+                    class="btn btn-light"
+                    onclick="openReport('${esc(report.ReportID)}')"
+                  >
+                    ${['DRAFT', 'CORRECTION'].includes(report.Status) ? 'Edit' : 'View'}
+                  </button>
+
+                  ${report.Status === 'SUBMITTED'
+                    ? `
+                      <button
+                        class="btn btn-light"
+                        onclick="printReportById('${esc(report.ReportID)}')"
+                      >
+                        PDF / Print
+                      </button>
+
+                      <button
+                        class="btn btn-light"
+                        onclick="askCorrection('${esc(report.ReportID)}')"
+                      >
+                        Correction
+                      </button>
+                    `
+                    : ''
+                  }
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${rows.length
+      ? ''
+      : `
+        <div class="notice">
+          No report found for this filter.
+        </div>
+      `
+    }
+  `;
+}
+
+
+function renderClubProfile() {
+  clubProfileTab.innerHTML = `
+    <div class="card">
+      <h3>Club Profile</h3>
+
+      <div class="notice ok">
+        President र Secretary दुवैले यही एउटै shared Club Profile edit गर्छन्।
+        Logo/Profile update भएपछि दुवै login मा latest data देखिन्छ।
+      </div>
+
+      <div class="notice">
+        Login / verified Personal Email यहाँबाट change हुँदैन।
+        Verified email बदल्न official officer master data update आवश्यक हुन्छ।
+      </div>
+
+      <div class="grid g2">
+        <div>
+          <div class="field">
+            <label>Club Logo</label>
+
+            <input
+              type="file"
+              id="clubLogoFile"
+              accept="image/*"
+            >
+          </div>
+
+          <img
+            class="logo-preview"
+            src="${esc(CLUB?.ClubLogoURL || 'logo.png')}"
+            alt="Club Logo"
+          >
+
+          <div class="actions">
+            <button
+              class="btn btn-light"
+              onclick="uploadClubLogo()"
+            >
+              Upload / Replace Logo
+            </button>
+
+            ${CLUB?.ClubLogoURL
+              ? `
+                <button
+                  class="btn btn-danger"
+                  onclick="removeClubLogo()"
+                >
+                  Remove Club Logo
+                </button>
+              `
+              : ''
+            }
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Verified Login Email</label>
+
+          <input
+            value="${esc(USER.verifiedEmail || 'Official master email')}"
+            disabled
+          >
+        </div>
+
+        <div class="field">
+          <label>Club Name</label>
+
+          <input
+            id="pfClubName"
+            value="${esc(CLUB?.ClubName || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Charter Date</label>
+
+          <input
+            id="pfCharterDate"
+            type="date"
+            value="${dateOnly(CLUB?.CharterDate)}"
+          >
+        </div>
+
+        <div class="field">
+          <label>President</label>
+
+          <input
+            id="pfPresident"
+            value="${esc(CLUB?.PresidentName || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Secretary</label>
+
+          <input
+            id="pfSecretary"
+            value="${esc(CLUB?.SecretaryName || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Club Contact Email</label>
+
+          <input
+            id="pfEmail"
+            value="${esc(CLUB?.ClubEmail || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Phone</label>
+
+          <input
+            id="pfPhone"
+            value="${esc(CLUB?.ClubPhone || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Zone</label>
+
+          <input
+            value="${esc(CLUB?.ZoneID || '')} — ${esc(CLUB?.ZoneName || '')}"
+            disabled
+          >
+        </div>
+      </div>
+
+      <div class="actions">
+        <button
+          class="btn btn-primary"
+          onclick="saveClubProfile()"
+        >
+          Save Profile
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 
 async function saveClubProfile(){try{showLoading('Saving profile...');
 
@@ -1047,6 +1698,41 @@ await api('saveClubLogo',{dataUrl:await fileData(f)});
 await loadClubDashboard();
 
 alert('Logo saved')}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function removeClubLogo() {
+  if (
+    !confirm(
+      'Remove Club Logo? PDF will use default logo.png.'
+    )
+  ) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Removing Club Logo...'
+    );
+
+    await api(
+      'removeClubLogo'
+    );
+
+    await loadClubDashboard();
+
+    alert(
+      'Club Logo removed. Default logo.png will be used.'
+    );
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
 
 async function startReport(){const m=prompt('Reporting Month (YYYY-MM)',currentMonth());
 
@@ -1082,12 +1768,32 @@ FUTURE=r.futurePlans||[];
 
 renderReportForm();
 
-startAutoSave()}
+startAutoSave()
+
+startSharedSync();
+}
 
 function renderReportForm(){
   const r=CURRENT_REPORT.master,locked=r.Status==='SUBMITTED';
 
-  clubReportTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Report – ${esc(r.ReportingMonth)}</h2><div class="spacer"></div><span class="status st-${esc(r.Status)}">${esc(r.Status)}</span></div>${locked?`<div class="notice">Final Submitted report lock भएको छ। Correction approval भएपछि मात्र edit गर्न मिल्छ।</div>`:`<div class="notice ok">Draft mode: form 60 seconds मा auto-save हुन्छ।</div>`}
+  clubReportTab.innerHTML=`<div class="card">
+<div
+  id="sharedUpdateBanner"
+  class="notice error hide"
+></div>
+
+<div class="notice ok">
+  Shared Club Report • Last edited by:
+  <b>${esc(CURRENT_REPORT.lastSavedBy?.displayName || 'Not available')}</b>
+  ${CURRENT_REPORT.lastSavedBy?.position ? ' • ' + esc(CURRENT_REPORT.lastSavedBy.position) : ''}
+  ${r.LastSavedAt ? ' • ' + esc(r.LastSavedAt) : ''}
+</div><div class="section-title"><h2>Club Report – ${esc(r.ReportingMonth)}</h2><div class="spacer"></div><span class="status st-${esc(r.Status)}">${esc(r.Status)}</span>
+<span class="pill">
+  Revision ${esc(r.Revision || 1)}
+</span>
+<span class="pill">
+  Fiscal Year ${esc(r.FiscalYear || '-')}
+</span></div>${locked?`<div class="notice">Final Submitted report lock भएको छ। Correction approval भएपछि मात्र edit गर्न मिल्छ।</div>`:`<div class="notice ok">Draft mode: form 60 seconds मा auto-save हुन्छ।</div>`}
   <div class="section"><h3>Membership Details</h3><div class="grid g4">${fnum('Opening Member','rmOpening',r.OpeningMembers,locked)}${fnum('Add Member','rmAdded',r.AddedMembers,locked)}${fnum('Drop Member','rmDropped',r.DroppedMembers,locked)}${fnum('Total Member','rmTotal',r.TotalMembers,true)}${fnum('Total Male','rmMale',r.MaleMembers,locked)}${fnum('Total Female','rmFemale',r.FemaleMembers,locked)}${ftext('Period Start','rmStart',dateOnly(r.PeriodStart),'date',locked)}${ftext('Period End','rmEnd',dateOnly(r.PeriodEnd),'date',locked)}</div><div id="memberCheck" class="notice"></div></div>
   <div class="section"><h3>Club Dues / Reporting / Participation</h3><div class="grid g3">${fselect('International Dues','rmInternational',r.InternationalDues,['','Clear','Pending','Not Applicable'],locked)}${fselect('District Dues','rmDistrict',r.DistrictDues,['','Clear','Pending','Not Applicable'],locked)}${fselect('Portal Reporting','rmPortal',r.PortalReporting,['','Reported','Pending'],locked)}${fselect('Zone Meeting','rmZoneMeeting',r.ZoneMeeting,['','Participated','Not Participated'],locked)}${fselect('District Program','rmDistrictProgram',r.DistrictProgram,['','Participated','Not Participated'],locked)}</div></div>
   <div class="section"><div class="section-title"><h3>Service Activities</h3><span class="pill">Unlimited • Max 2 photos / service</span><div class="spacer"></div>${!locked?`<button class="btn btn-gold" onclick="addService()">+ Add Service</button>`:''}</div><div id="servicesWrap"></div></div>
@@ -1419,24 +2125,382 @@ function previewPrint(){buildPrint(CURRENT_REPORT);
 
 window.print()}
 
-function buildPrint(report){
-  const r=report.master,c=report.club||{},services=report.services||SERVICES,contrib=report.contributions||CONTRIBUTIONS,programs=report.programs||PROGRAMS,blood=report.blood||BLOOD,future=report.futurePlans||FUTURE;
+function buildPrint(report) {
+  const r =
+    report.master;
 
-  printArea.innerHTML=`<section class="p-cover"><img
-    class="p-logo"
-    src="${esc(c.ClubLogoURL || r.ClubLogoURLSnapshot || 'logo.png')}"
-    alt="Club Logo"
-  ><h1>${esc(r.ClubNameSnapshot||c.ClubName||'Lions Club')}</h1><h2>CLUB MONTHLY / PERIODIC REPORT</h2><p>${esc(r.PeriodStart)} to ${esc(r.PeriodEnd)}</p><p><b>Zone:</b> ${esc(r.ZoneID)} &nbsp; | &nbsp; <b>Zone Chairperson:</b> ${esc(r.ZoneChairpersonSnapshot||'')}</p><div style="margin-top:24mm"><b>President:</b> ${esc(r.PresidentSnapshot||'')}<br><b>Secretary:</b> ${esc(r.SecretarySnapshot||'')}</div></section>
-  <section class="p-page"><h2 class="p-head">Club & Membership Details</h2><table class="p-table"><tr><th>Charter Date</th><th>Opening</th><th>Add</th><th>Drop</th><th>Total</th><th>Male</th><th>Female</th><th>Net</th></tr><tr><td>${esc(r.CharterDateSnapshot)}</td><td>${r.OpeningMembers}</td><td>${r.AddedMembers}</td><td>${r.DroppedMembers}</td><td>${r.TotalMembers}</td><td>${r.MaleMembers}</td><td>${r.FemaleMembers}</td><td>${r.NetGrowth}</td></tr></table>
-  <h2 class="p-head" style="margin-top:8mm">Club Dues / Reporting / Participation</h2><table class="p-table"><tr><th>International Dues</th><th>District Dues</th><th>Portal Reporting</th><th>Zone Meeting</th><th>District Program</th></tr><tr><td>${esc(r.InternationalDues)}</td><td>${esc(r.DistrictDues)}</td><td>${esc(r.PortalReporting)}</td><td>${esc(r.ZoneMeeting)}</td><td>${esc(r.DistrictProgram)}</td></tr></table>
-  ${contrib.length?`<h2 class="p-head" style="margin-top:8mm">Contributions</h2><table class="p-table"><tr><th>Type</th><th>Date</th><th>Amount</th><th>Remarks</th></tr>${contrib.map(x=>`<tr><td>${esc(x.Type)}</td><td>${esc(dateOnly(x.ContributionDate))}</td><td>${money(x.Amount)} ${esc(x.Currency||'NPR')}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:''}
-  ${programs.length?`<h2 class="p-head" style="margin-top:8mm">Participated Programs</h2><table class="p-table"><tr><th>Level</th><th>Program</th><th>Date</th><th>Remarks</th></tr>${programs.map(x=>`<tr><td>${esc(x.Level)}</td><td>${esc(x.Title)}</td><td>${esc(dateOnly(x.ProgramDate))}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:''}</section>
-  <section class="p-page"><h2 class="p-head">Service Activities</h2>${services.map((s,i)=>`<div class="p-service"><h4>${i+1}. ${esc(s.Title||'Service Activity')} ${s.ServiceDate?'— '+esc(dateOnly(s.ServiceDate)):''}</h4><div class="p-small">${esc(s.Category||'')} ${s.Beneficiaries?' | Beneficiaries: '+esc(s.Beneficiaries):''}${s.Units?' | Units: '+esc(s.Units):''}${s.ServiceHours?' | Hours: '+esc(s.ServiceHours):''}</div><div class="p-small">${esc(s.Description||'')}</div>${(s.Photo1URL||s.Photo2URL)?`<div class="p-photos ${s.Photo1URL&&s.Photo2URL?'':'one'}">${s.Photo1URL?`<img src="${esc(s.Photo1URL)}">`:''}${s.Photo2URL?`<img src="${esc(s.Photo2URL)}">`:''}</div>`:''}</div>`).join('')}</section>
-  <section><h2 class="p-head">Blood Donation / Blood Information</h2>${blood.length?`<table class="p-table"><tr><th>S.N.</th><th>Name / Record</th><th>Blood Group</th><th>Units</th><th>Contact</th><th>Remarks</th></tr>${blood.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.DonorName)}</td><td>${esc(x.BloodGroup)}</td><td>${esc(x.Units)}</td><td>${esc(x.Contact)}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:`<p class="p-small">No blood information reported.</p>`}
-  <h2 class="p-head" style="margin-top:9mm">Future Plan</h2>${future.length?`<table class="p-table"><tr><th>S.N.</th><th>Plan</th><th>Tentative Date</th><th>Remarks</th></tr>${future.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.Title)}</td><td>${esc(dateOnly(x.TentativeDate))}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:`<p class="p-small">No future plan entered.</p>`}
-  ${r.Notes?`<h2 class="p-head" style="margin-top:9mm">Notes</h2><p class="p-small">${esc(r.Notes)}</p>`:''}<div class="p-sign"><div>President<br>${esc(r.PresidentSnapshot||'')}</div><div>Secretary<br>${esc(r.SecretarySnapshot||'')}</div></div><div class="p-footer">Generated by Lions Club Digital Reporting & Zone Reporting System</div></section>`;
+  const c =
+    report.club ||
+    {};
 
+  const services =
+    report.services ||
+    SERVICES;
+
+  const contrib =
+    report.contributions ||
+    CONTRIBUTIONS;
+
+  const programs =
+    report.programs ||
+    PROGRAMS;
+
+  const blood =
+    report.blood ||
+    BLOOD;
+
+  const future =
+    report.futurePlans ||
+    FUTURE;
+
+  const editor =
+    report.lastSavedBy ||
+    {};
+
+  const reportLogo =
+    c.ClubLogoURL ||
+    r.ClubLogoURLSnapshot ||
+    'logo.png';
+
+  printArea.innerHTML = `
+    <section class="p-cover">
+      <img
+        class="p-logo"
+        src="${esc(reportLogo)}"
+        alt="Club Logo"
+      >
+
+      <h1>
+        ${esc(r.ClubNameSnapshot || c.ClubName || 'Lions Club')}
+      </h1>
+
+      <h2>
+        CLUB MONTHLY / PERIODIC REPORT
+      </h2>
+
+      <p>
+        ${esc(r.PeriodStart)}
+        to
+        ${esc(r.PeriodEnd)}
+      </p>
+
+      <p>
+        <b>Fiscal Year:</b>
+        ${esc(r.FiscalYear || '-')}
+        &nbsp; | &nbsp;
+        <b>Revision:</b>
+        ${esc(r.Revision || 1)}
+      </p>
+
+      <p>
+        <b>Zone:</b>
+        ${esc(r.ZoneID)}
+        &nbsp; | &nbsp;
+        <b>Zone Chairperson:</b>
+        ${esc(r.ZoneChairpersonSnapshot || '')}
+      </p>
+
+      <div style="margin-top:24mm">
+        <b>President:</b>
+        ${esc(r.PresidentSnapshot || '')}
+        <br>
+
+        <b>Secretary:</b>
+        ${esc(r.SecretarySnapshot || '')}
+      </div>
+
+      <div class="p-page-number">
+        Page 1
+      </div>
+    </section>
+
+    <section class="p-page">
+      <h2 class="p-head">
+        Club & Membership Details
+      </h2>
+
+      <table class="p-table">
+        <tr>
+          <th>Charter Date</th>
+          <th>Opening</th>
+          <th>Add</th>
+          <th>Drop</th>
+          <th>Total</th>
+          <th>Male</th>
+          <th>Female</th>
+          <th>Net</th>
+        </tr>
+
+        <tr>
+          <td>${esc(r.CharterDateSnapshot)}</td>
+          <td>${r.OpeningMembers}</td>
+          <td>${r.AddedMembers}</td>
+          <td>${r.DroppedMembers}</td>
+          <td>${r.TotalMembers}</td>
+          <td>${r.MaleMembers}</td>
+          <td>${r.FemaleMembers}</td>
+          <td>${r.NetGrowth}</td>
+        </tr>
+      </table>
+
+      <h2
+        class="p-head"
+        style="margin-top:8mm"
+      >
+        Club Dues / Reporting / Participation
+      </h2>
+
+      <table class="p-table">
+        <tr>
+          <th>International Dues</th>
+          <th>District Dues</th>
+          <th>Portal Reporting</th>
+          <th>Zone Meeting</th>
+          <th>District Program</th>
+        </tr>
+
+        <tr>
+          <td>${esc(r.InternationalDues)}</td>
+          <td>${esc(r.DistrictDues)}</td>
+          <td>${esc(r.PortalReporting)}</td>
+          <td>${esc(r.ZoneMeeting)}</td>
+          <td>${esc(r.DistrictProgram)}</td>
+        </tr>
+      </table>
+
+      ${contrib.length
+        ? `
+          <h2
+            class="p-head"
+            style="margin-top:8mm"
+          >
+            Contributions
+          </h2>
+
+          <table class="p-table">
+            <tr>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Remarks</th>
+            </tr>
+
+            ${contrib.map(item => `
+              <tr>
+                <td>${esc(item.Type)}</td>
+                <td>${esc(dateOnly(item.ContributionDate))}</td>
+                <td>${money(item.Amount)} ${esc(item.Currency || 'NPR')}</td>
+                <td>${esc(item.Remarks || '')}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `
+        : ''
+      }
+
+      ${programs.length
+        ? `
+          <h2
+            class="p-head"
+            style="margin-top:8mm"
+          >
+            Participated Programs
+          </h2>
+
+          <table class="p-table">
+            <tr>
+              <th>Level</th>
+              <th>Program</th>
+              <th>Date</th>
+              <th>Remarks</th>
+            </tr>
+
+            ${programs.map(item => `
+              <tr>
+                <td>${esc(item.Level)}</td>
+                <td>${esc(item.Title)}</td>
+                <td>${esc(dateOnly(item.ProgramDate))}</td>
+                <td>${esc(item.Remarks || '')}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `
+        : ''
+      }
+
+      <div class="p-page-number">
+        Page 2
+      </div>
+    </section>
+
+    <section class="p-page">
+      <h2 class="p-head">
+        Service Activities
+      </h2>
+
+      ${services.length
+        ? services.map((service, index) => `
+          <div class="p-service">
+            <h4>
+              ${index + 1}.
+              ${esc(service.Title || 'Service Activity')}
+              ${service.ServiceDate ? '— ' + esc(dateOnly(service.ServiceDate)) : ''}
+            </h4>
+
+            <div class="p-small">
+              ${esc(service.Category || '')}
+              ${service.Beneficiaries ? ' | Beneficiaries: ' + esc(service.Beneficiaries) : ''}
+              ${service.Units ? ' | Units: ' + esc(service.Units) : ''}
+              ${service.ServiceHours ? ' | Hours: ' + esc(service.ServiceHours) : ''}
+            </div>
+
+            <div class="p-small">
+              ${esc(service.Description || '')}
+            </div>
+
+            ${(service.Photo1URL || service.Photo2URL)
+              ? `
+                <div class="p-photos ${service.Photo1URL && service.Photo2URL ? '' : 'one'}">
+                  ${service.Photo1URL ? `<img src="${esc(service.Photo1URL)}">` : ''}
+                  ${service.Photo2URL ? `<img src="${esc(service.Photo2URL)}">` : ''}
+                </div>
+              `
+              : ''
+            }
+          </div>
+        `).join('')
+        : `
+          <p class="p-small">
+            No service activity reported.
+          </p>
+        `
+      }
+
+      <div class="p-page-number">
+        Page 3
+      </div>
+    </section>
+
+    <section class="p-page">
+      <h2 class="p-head">
+        Blood Donation / Blood Information
+      </h2>
+
+      ${blood.length
+        ? `
+          <table class="p-table">
+            <tr>
+              <th>S.N.</th>
+              <th>Name / Record</th>
+              <th>Blood Group</th>
+              <th>Units</th>
+              <th>Contact</th>
+              <th>Remarks</th>
+            </tr>
+
+            ${blood.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${esc(item.DonorName)}</td>
+                <td>${esc(item.BloodGroup)}</td>
+                <td>${esc(item.Units)}</td>
+                <td>${esc(item.Contact)}</td>
+                <td>${esc(item.Remarks || '')}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `
+        : `
+          <p class="p-small">
+            No blood information reported.
+          </p>
+        `
+      }
+
+      <h2
+        class="p-head"
+        style="margin-top:9mm"
+      >
+        Future Plan
+      </h2>
+
+      ${future.length
+        ? `
+          <table class="p-table">
+            <tr>
+              <th>S.N.</th>
+              <th>Plan</th>
+              <th>Tentative Date</th>
+              <th>Remarks</th>
+            </tr>
+
+            ${future.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${esc(item.Title)}</td>
+                <td>${esc(dateOnly(item.TentativeDate))}</td>
+                <td>${esc(item.Remarks || '')}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `
+        : `
+          <p class="p-small">
+            No future plan entered.
+          </p>
+        `
+      }
+
+      ${r.Notes
+        ? `
+          <h2
+            class="p-head"
+            style="margin-top:9mm"
+          >
+            Notes
+          </h2>
+
+          <p class="p-small">
+            ${esc(r.Notes)}
+          </p>
+        `
+        : ''
+      }
+
+      <div class="p-small" style="margin-top:8mm">
+        <b>Last saved by:</b>
+        ${esc(editor.displayName || '-')}
+        ${editor.position ? ' • ' + esc(editor.position) : ''}
+        ${r.LastSavedAt ? ' • ' + esc(r.LastSavedAt) : ''}
+      </div>
+
+      <div class="p-sign">
+        <div>
+          President
+          <br>
+          ${esc(r.PresidentSnapshot || '')}
+        </div>
+
+        <div>
+          Secretary
+          <br>
+          ${esc(r.SecretarySnapshot || '')}
+        </div>
+      </div>
+
+      <div class="p-footer">
+        Generated by Lions Club Digital Reporting & Zone Reporting System
+        • Fiscal Year ${esc(r.FiscalYear || '-')}
+        • Revision ${esc(r.Revision || 1)}
+      </div>
+
+      <div class="p-page-number">
+        Page 4
+      </div>
+    </section>
+  `;
 }
+
 
 /* ZONE */
 function renderZoneShell(){zoneApp.innerHTML=`<div class="tabs"><button class="tab active" onclick="zoneTab('dash',this)">My Zone</button><button class="tab" onclick="zoneTab('correction',this)">Correction Requests</button></div><div id="zoneDashTab"></div><div id="zoneCorrectionTab" class="hide"></div>`}
@@ -1519,6 +2583,13 @@ function renderAdminShell() {
       >
         Year Settings
       </button>
+
+      <button
+        class="tab"
+        onclick="adminTab('officers', this)"
+      >
+        Club Officers
+      </button>
     </div>
 
     <div id="adminDashboardTab"></div>
@@ -1527,6 +2598,7 @@ function renderAdminShell() {
     <div id="adminZonechairsTab" class="hide"></div>
     <div id="adminMappingTab" class="hide"></div>
     <div id="adminYearTab" class="hide"></div>
+    <div id="adminOfficersTab" class="hide"></div>
   `;
 
 }
@@ -1544,7 +2616,8 @@ function adminTab(name, button) {
     'Clubs',
     'Zonechairs',
     'Mapping',
-    'Year'
+    'Year',
+    'Officers'
   ].forEach(section => {
     $('admin' + section + 'Tab').classList.add('hide');
 
@@ -1584,23 +2657,342 @@ function adminTab(name, button) {
     loadAdminYearSettings();
 
   }
+
+  if (
+    name ===
+    'officers'
+  ) {
+    loadAdminClubOfficers();
+  }
 }
 
-async function loadAdminDashboard(){adminDashboardTab.innerHTML=`<div class="card"><h2>District Admin Dashboard</h2><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="adminMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="adminDashLoad()">Load</button></div><div id="adminStats"></div></div>`;
+async function loadAdminDashboard() {
+  adminDashboardTab.innerHTML = `
+    <div class="card">
+      <h2>District Admin Dashboard</h2>
 
-await adminDashLoad()}
+      <div class="toolbar">
+        <div class="field">
+          <label>Reporting Month</label>
 
-async function adminDashLoad(){try{showLoading('Loading District data...');
+          <input
+            id="adminMonth"
+            type="month"
+            value="${currentMonth()}"
+          >
+        </div>
 
-const d=await api('adminDashboard',{reportingMonth:adminMonth.value});
+        <button
+          class="btn btn-primary"
+          onclick="adminDashLoad()"
+        >
+          Load
+        </button>
+      </div>
 
-adminStats.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.submitted}</strong></div><div class="kpi"><span>Pending</span><strong>${d.pending}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.totalServices}</strong></div></div>`}catch(e){adminStats.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+      <div id="adminStats"></div>
+    </div>
+  `;
 
-async function loadAdminUsers(){try{showLoading('Loading users...');
+  await adminDashLoad();
+}
 
-const d=await api('adminListUsers');
 
-adminUsersTab.innerHTML=`<div class="card"><div class="section-title"><h2>User Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openCreateUser()">+ Create User</button></div><div class="table-wrap"><table><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Club</th><th>Zone</th><th>Status</th><th>Action</th></tr>${d.users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${esc(u.role)}</td><td>${esc(u.clubId||'-')}</td><td>${esc(u.zoneId||'-')}</td><td>${u.active?'Active':'Inactive'}</td><td><div class="actions"><button class="btn ${u.active?'btn-danger':'btn-ok'}" onclick="setUserActive('${esc(u.userId)}',${!u.active})">${u.active?'Deactivate':'Activate'}</button><button class="btn btn-light" onclick="resetPassword('${esc(u.userId)}','${esc(u.username)}')">Reset Password</button></div></td></tr>`).join('')}</table></div></div>`}catch(e){adminUsersTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+async function adminDashLoad() {
+  try {
+    showLoading(
+      'Loading District data...'
+    );
+
+    const data = await api(
+      'adminDashboard',
+      {
+        reportingMonth:
+          adminMonth.value
+      }
+    );
+
+    adminStats.innerHTML = `
+      <div
+        class="notice ok"
+        style="margin-top:14px"
+      >
+        Current Fiscal Year:
+        <b>${esc(data.currentFiscalYear || '-')}</b>
+      </div>
+
+      <div
+        class="grid g4"
+        style="margin-top:14px"
+      >
+        <div class="kpi">
+          <span>Total Clubs</span>
+          <strong>${data.totalClubs}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Submitted</span>
+          <strong>${data.submitted}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Pending</span>
+          <strong>${data.pending}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Total Services</span>
+          <strong>${data.totalServices}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Club Accounts</span>
+          <strong>${data.clubAccounts}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Zone Accounts</span>
+          <strong>${data.zoneAccounts}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Locked Accounts</span>
+          <strong>${data.lockedAccounts}</strong>
+        </div>
+
+        <div class="kpi">
+          <span>Failed OTP Attempts</span>
+          <strong>${data.failedOtpAttempts}</strong>
+        </div>
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <div class="section-title">
+          <h3>Security Events</h3>
+
+          <div class="spacer"></div>
+
+          <button
+            class="btn btn-light"
+            onclick="downloadYearBackup()"
+          >
+            Download Year Backup
+          </button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Event</th>
+                <th>User</th>
+                <th>Role</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${(data.recentSecurityEvents || []).map(event => `
+                <tr>
+                  <td>${esc(event.CreatedAt || '')}</td>
+                  <td>${esc(event.EventType || '')}</td>
+                  <td>${esc(event.UserKey || '-')}</td>
+                  <td>${esc(event.Role || '-')}</td>
+                  <td>${esc(event.Details || '')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    adminStats.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+async function downloadYearBackup() {
+  const fiscalYear = prompt(
+    'Fiscal Year to backup',
+    ''
+  );
+
+  if (!fiscalYear) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Preparing yearly backup...'
+    );
+
+    const data = await api(
+      'adminExportYearBackup',
+      {
+        fiscalYear:
+          fiscalYear
+      }
+    );
+
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
+      ],
+      {
+        type:
+          'application/json'
+      }
+    );
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    const link =
+      document.createElement(
+        'a'
+      );
+
+    link.href =
+      url;
+
+    link.download =
+      'Lions_Reporting_Backup_' +
+      fiscalYear.replace(
+        '/',
+        '-'
+      ) +
+      '.json';
+
+    document.body.appendChild(
+      link
+    );
+
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(
+      url
+    );
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+async function loadAdminUsers() {
+  try {
+    showLoading(
+      'Loading users...'
+    );
+
+    const data = await api(
+      'adminListUsers'
+    );
+
+    adminUsersTab.innerHTML = `
+      <div class="card">
+        <div class="section-title">
+          <h2>User Management</h2>
+
+          <div class="spacer"></div>
+
+          <button
+            class="btn btn-gold"
+            onclick="openCreateUser()"
+          >
+            + Create User
+          </button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>Username</th>
+              <th>Display Name</th>
+              <th>Role</th>
+              <th>Club</th>
+              <th>Zone</th>
+              <th>Fiscal Year</th>
+              <th>Account Status</th>
+              <th>Action</th>
+            </tr>
+
+            ${data.users.map(user => `
+              <tr>
+                <td>${esc(user.username)}</td>
+                <td>${esc(user.displayName)}</td>
+                <td>${esc(user.role)}</td>
+                <td>${esc(user.clubId || '-')}</td>
+                <td>${esc(user.zoneId || '-')}</td>
+                <td>${esc(user.fiscalYear || '-')}</td>
+
+                <td>
+                  <span class="status">
+                    ${esc(user.accountStatus || (user.active ? 'ACTIVE' : 'INACTIVE'))}
+                  </span>
+                </td>
+
+                <td>
+                  <div class="actions">
+                    <button
+                      class="btn ${user.active ? 'btn-danger' : 'btn-ok'}"
+                      onclick="setUserActive('${esc(user.userId)}', ${!user.active})"
+                    >
+                      ${user.active ? 'Deactivate' : 'Activate'}
+                    </button>
+
+                    <button
+                      class="btn btn-light"
+                      onclick="resetPassword('${esc(user.userId)}', '${esc(user.username)}')"
+                    >
+                      Reset Password
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    adminUsersTab.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
+}
+
 
 function openCreateUser(){showModal(`<div class="row"><h2>Create User</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Username</label><input id="cuUsername"></div><div class="field"><label>Password</label><input id="cuPassword" type="password"></div><div class="field"><label>Display Name</label><input id="cuDisplay"></div><div class="field"><label>Role</label><select id="cuRole" onchange="toggleUserRoleFields()"><option>CLUB</option><option>ZONE</option><option>ADMIN</option></select></div><div class="field" id="cuClubWrap"><label>Club ID</label><input id="cuClub"></div><div class="field" id="cuZoneWrap"><label>Zone ID</label><input id="cuZone"></div></div><button class="btn btn-primary" onclick="createUserNow()">Create User</button>`);
 
@@ -1651,6 +3043,270 @@ await api('adminSaveClub',{ClubID:acId.value,ClubName:acName.value,ZoneID:acZone
 closeModal();
 
 loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+/* =========================================================
+   ADMIN: CLUB OFFICER MASTER / YEARLY IMPORT
+========================================================= */
+
+async function loadAdminClubOfficers() {
+  try {
+    showLoading(
+      'Loading Club Officer master...'
+    );
+
+    const fiscalYear =
+      prompt(
+        'Fiscal Year',
+        ''
+      ) ||
+      '';
+
+    const data = await api(
+      'adminListClubOfficers',
+      {
+        fiscalYear:
+          fiscalYear
+      }
+    );
+
+    adminOfficersTab.innerHTML = `
+      <div class="card">
+        <div class="section-title">
+          <h2>
+            Club Officer Master
+            ${esc(data.fiscalYear || '')}
+          </h2>
+
+          <div class="spacer"></div>
+
+          <button
+            class="btn btn-gold"
+            onclick="openClubOfficerImport('${esc(data.fiscalYear || '')}')"
+          >
+            Paste / Import Officers
+          </button>
+        </div>
+
+        <div class="notice">
+          Only President and Secretary are accepted.
+          Import requires official Email for OTP verification.
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Club</th>
+                <th>Lion ID</th>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Fiscal Year</th>
+                <th>Email</th>
+                <th>Mobile</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${data.rows.map(row => `
+                <tr>
+                  <td>
+                    ${esc(row.ClubName || row.ClubID)}
+                    <br>
+                    <small>${esc(row.ClubID)}</small>
+                  </td>
+                  <td>${esc(row.LionID)}</td>
+                  <td>${esc(row.OfficerName)}</td>
+                  <td>${esc(row.Position)}</td>
+                  <td>${esc(row.FiscalYear)}</td>
+                  <td>${esc(row.Email)}</td>
+                  <td>${esc(row.Mobile || '')}</td>
+                  <td>${esc(row.Active)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    adminOfficersTab.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+function openClubOfficerImport(
+  fiscalYear
+) {
+  showModal(`
+    <div class="row">
+      <h2>Import President / Secretary</h2>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <div class="field">
+      <label>Fiscal Year</label>
+
+      <input
+        id="officerImportYear"
+        value="${esc(fiscalYear || '')}"
+        placeholder="2026/27"
+      >
+    </div>
+
+    <div class="notice">
+      Excel बाट tab-separated columns paste गर्नुहोस्।
+      Expected order:
+      LionID | ClubID | ClubName | OfficerName | Position | Email | Mobile
+    </div>
+
+    <div class="field">
+      <label>Paste Excel Data</label>
+
+      <textarea
+        id="clubOfficerPaste"
+        style="min-height:280px"
+      ></textarea>
+    </div>
+
+    <button
+      class="btn btn-primary"
+      onclick="importClubOfficers()"
+    >
+      Import & Activate This Year
+    </button>
+  `);
+}
+
+
+async function importClubOfficers() {
+  const raw =
+    clubOfficerPaste.value.trim();
+
+  if (!raw) {
+    alert(
+      'Paste Excel data first.'
+    );
+    return;
+  }
+
+  const parsed = raw
+    .split(/\r?\n/)
+    .map(line =>
+      line.split('\t')
+    )
+    .filter(columns =>
+      columns.length >=
+      6
+    );
+
+  if (!parsed.length) {
+    alert(
+      'Officer data could not be detected.'
+    );
+    return;
+  }
+
+  const first =
+    String(
+      parsed[0][0] ||
+      ''
+    ).toLowerCase();
+
+  const rows =
+    first.includes(
+      'lion'
+    )
+      ? parsed.slice(1)
+      : parsed;
+
+  const payloadRows =
+    rows.map(columns => ({
+      LionID:
+        columns[0] ||
+        '',
+      ClubID:
+        columns[1] ||
+        '',
+      ClubName:
+        columns[2] ||
+        '',
+      OfficerName:
+        columns[3] ||
+        '',
+      Position:
+        columns[4] ||
+        '',
+      Email:
+        columns[5] ||
+        '',
+      Mobile:
+        columns[6] ||
+        ''
+    }));
+
+  if (
+    !confirm(
+      'Import ' +
+      payloadRows.length +
+      ' officers for ' +
+      officerImportYear.value +
+      '? Existing rows of the same year will be made inactive first.'
+    )
+  ) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Importing officers...'
+    );
+
+    const result = await api(
+      'adminImportClubOfficers',
+      {
+        fiscalYear:
+          officerImportYear.value.trim(),
+        rows:
+          payloadRows
+      }
+    );
+
+    closeModal();
+
+    alert(
+      result.imported +
+      ' officer records imported.'
+    );
+
+    await loadAdminClubOfficers();
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
 
 /* =========================================================
    ADMIN: YEAR SETTINGS
