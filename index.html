@@ -6,9 +6,10 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.5.0
+  FINAL BASE v1.6.0
   READABLE / MULTI-LINE SOURCE
 -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="config.js">
 </script>
 <style>
@@ -3048,24 +3049,25 @@ loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
    ADMIN: CLUB OFFICER MASTER / YEARLY IMPORT
 ========================================================= */
 
+let LIONS_OFFICER_IMPORT_ROWS =
+  [];
+
+
+/* =========================================================
+   ADMIN: DIRECT LIONS EXCEL IMPORT
+========================================================= */
+
 async function loadAdminClubOfficers() {
   try {
     showLoading(
       'Loading Club Officer master...'
     );
 
-    const fiscalYear =
-      prompt(
-        'Fiscal Year',
-        ''
-      ) ||
-      '';
-
     const data = await api(
       'adminListClubOfficers',
       {
         fiscalYear:
-          fiscalYear
+          ''
       }
     );
 
@@ -3073,55 +3075,88 @@ async function loadAdminClubOfficers() {
       <div class="card">
         <div class="section-title">
           <h2>
-            Club Officer Master
-            ${esc(data.fiscalYear || '')}
+            Import Lions Officer Excel
           </h2>
+        </div>
 
-          <div class="spacer"></div>
+        <div class="notice ok">
+          Lions system बाट download भएको
+          <b>Officer Contact Information.xlsx</b>
+          file सिधै upload गर्नुहोस्।
+          System ले Club President र Club Secretary मात्र
+          automatically filter गर्छ।
+        </div>
 
+        <div class="grid g2">
+          <div class="field">
+            <label>Fiscal Year</label>
+
+            <input
+              id="lionsImportFiscalYear"
+              value="${esc(data.fiscalYear || '')}"
+              placeholder="2026/27"
+            >
+          </div>
+
+          <div class="field">
+            <label>Lions Excel File (.xlsx / .xls)</label>
+
+            <input
+              id="lionsOfficerExcelFile"
+              type="file"
+              accept=".xlsx,.xls"
+              onchange="previewLionsOfficerExcel()"
+            >
+          </div>
+        </div>
+
+        <div class="actions">
           <button
-            class="btn btn-gold"
-            onclick="openClubOfficerImport('${esc(data.fiscalYear || '')}')"
+            class="btn btn-primary"
+            onclick="previewLionsOfficerExcel()"
           >
-            Paste / Import Officers
+            Read & Preview Excel
           </button>
         </div>
 
-        <div class="notice">
-          Only President and Secretary are accepted.
-          Import requires official Email for OTP verification.
-        </div>
+        <div
+          id="lionsExcelPreview"
+          style="margin-top:14px"
+        ></div>
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <h3>Current Imported Officer Master</h3>
 
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Club</th>
-                <th>Lion ID</th>
+                <th>Club ID</th>
+                <th>Member ID</th>
                 <th>Name</th>
                 <th>Position</th>
-                <th>Fiscal Year</th>
                 <th>Email</th>
-                <th>Mobile</th>
+                <th>Zone</th>
                 <th>Active</th>
               </tr>
             </thead>
 
             <tbody>
-              ${data.rows.map(row => `
+              ${(data.rows || []).map(row => `
                 <tr>
-                  <td>
-                    ${esc(row.ClubName || row.ClubID)}
-                    <br>
-                    <small>${esc(row.ClubID)}</small>
-                  </td>
-                  <td>${esc(row.LionID)}</td>
-                  <td>${esc(row.OfficerName)}</td>
-                  <td>${esc(row.Position)}</td>
-                  <td>${esc(row.FiscalYear)}</td>
-                  <td>${esc(row.Email)}</td>
-                  <td>${esc(row.Mobile || '')}</td>
-                  <td>${esc(row.Active)}</td>
+                  <td>${esc(row.ClubName || '')}</td>
+                  <td>${esc(row.ClubID || '')}</td>
+                  <td>${esc(row.LionID || '')}</td>
+                  <td>${esc(row.OfficerName || '')}</td>
+                  <td>${esc(row.Position || '')}</td>
+                  <td>${esc(row.Email || '')}</td>
+                  <td>${esc(row.ParentZone || '')}</td>
+                  <td>${esc(row.Active || '')}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -3143,131 +3178,440 @@ async function loadAdminClubOfficers() {
 }
 
 
-function openClubOfficerImport(
-  fiscalYear
-) {
-  showModal(`
-    <div class="row">
-      <h2>Import President / Secretary</h2>
+async function previewLionsOfficerExcel() {
+  const input = $(
+    'lionsOfficerExcelFile'
+  );
 
-      <div class="spacer"></div>
+  const preview = $(
+    'lionsExcelPreview'
+  );
 
-      <button
-        class="btn btn-light"
-        onclick="closeModal()"
-      >
-        Close
-      </button>
-    </div>
+  const file =
+    input &&
+    input.files
+      ? input.files[0]
+      : null;
 
-    <div class="field">
-      <label>Fiscal Year</label>
+  if (!file) {
+    alert(
+      'Please select Lions Officer Contact Information Excel file.'
+    );
+    return;
+  }
 
-      <input
-        id="officerImportYear"
-        value="${esc(fiscalYear || '')}"
-        placeholder="2026/27"
-      >
-    </div>
+  if (
+    typeof XLSX ===
+    'undefined'
+  ) {
+    alert(
+      'Excel reader library did not load. Please check internet connection and reload the page.'
+    );
+    return;
+  }
 
-    <div class="notice">
-      Excel बाट tab-separated columns paste गर्नुहोस्।
-      Expected order:
-      LionID | ClubID | ClubName | OfficerName | Position | Email | Mobile
-    </div>
+  try {
+    showLoading(
+      'Reading Lions Excel and filtering President / Secretary...'
+    );
 
-    <div class="field">
-      <label>Paste Excel Data</label>
+    const buffer =
+      await file.arrayBuffer();
 
-      <textarea
-        id="clubOfficerPaste"
-        style="min-height:280px"
-      ></textarea>
-    </div>
+    const workbook =
+      XLSX.read(
+        buffer,
+        {
+          type:
+            'array',
+          cellDates:
+            false
+        }
+      );
 
-    <button
-      class="btn btn-primary"
-      onclick="importClubOfficers()"
-    >
-      Import & Activate This Year
-    </button>
-  `);
+    const firstSheet =
+      workbook.Sheets[
+        workbook.SheetNames[0]
+      ];
+
+    const rawRows =
+      XLSX.utils.sheet_to_json(
+        firstSheet,
+        {
+          defval:
+            '',
+          raw:
+            false
+        }
+      );
+
+    if (!rawRows.length) {
+      throw new Error(
+        'Excel file has no data.'
+      );
+    }
+
+    let currentClubName =
+      '';
+
+    const filtered =
+      [];
+
+    rawRows.forEach(row => {
+      const accountName = String(
+        row['Account Name  ↑'] ||
+        row['Account Name'] ||
+        ''
+      ).trim();
+
+      if (accountName) {
+        currentClubName =
+          accountName;
+      }
+
+      const title = String(
+        row['Official Title'] ||
+        ''
+      ).trim();
+
+      if (
+        ![
+          'Club President',
+          'Club Secretary'
+        ].includes(
+          title
+        )
+      ) {
+        return;
+      }
+
+      const type = String(
+        row['Type'] ||
+        ''
+      ).trim();
+
+      if (
+        type &&
+        type !==
+        'Lions Club'
+      ) {
+        return;
+      }
+
+      const firstName = String(
+        row['Member: First Name'] ||
+        ''
+      ).trim();
+
+      const middleName = String(
+        row['Member: Middle Name'] ||
+        ''
+      ).trim();
+
+      const lastName = String(
+        row['Member: Last Name'] ||
+        ''
+      ).trim();
+
+      const fullName = [
+        firstName,
+        middleName,
+        lastName
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .replace(
+          /\s+/g,
+          ' '
+        )
+        .trim();
+
+      const email = String(
+        row['Member: Personal Email'] ||
+        ''
+      )
+        .trim()
+        .toLowerCase();
+
+      const validEmail =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          email
+        );
+
+      filtered.push({
+        LionID:
+          String(
+            row['Member: Member ID'] ||
+            ''
+          ).trim(),
+
+        ClubID:
+          String(
+            row['Lion ID'] ||
+            ''
+          ).trim(),
+
+        ClubName:
+          currentClubName,
+
+        OfficerName:
+          fullName,
+
+        Position:
+          title ===
+          'Club President'
+            ? 'PRESIDENT'
+            : 'SECRETARY',
+
+        Email:
+          validEmail
+            ? email
+            : '',
+
+        Mobile:
+          String(
+            row['Member: Mobile'] ||
+            ''
+          ).trim(),
+
+        StartDate:
+          String(
+            row['Start Date'] ||
+            ''
+          ).trim(),
+
+        EndDate:
+          String(
+            row['End Date'] ||
+            ''
+          ).trim(),
+
+        ParentRegion:
+          String(
+            row['Parent Region'] ||
+            ''
+          ).trim(),
+
+        ParentZone:
+          String(
+            row['Parent Zone'] ||
+            ''
+          ).trim(),
+
+        Source:
+          'LIONS_EXCEL',
+
+        EmailStatus:
+          validEmail
+            ? 'READY'
+            : 'INVALID / MISSING EMAIL'
+      });
+    });
+
+    if (!filtered.length) {
+      throw new Error(
+        'Club President / Club Secretary records were not found. Please confirm this is the Lions Officer Contact Information export.'
+      );
+    }
+
+    LIONS_OFFICER_IMPORT_ROWS =
+      filtered;
+
+    renderLionsExcelPreview(
+      filtered,
+      file.name,
+      rawRows.length
+    );
+
+  } catch (error) {
+    preview.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
 }
 
 
-async function importClubOfficers() {
-  const raw =
-    clubOfficerPaste.value.trim();
+function renderLionsExcelPreview(
+  rows,
+  fileName,
+  sourceCount
+) {
+  const preview = $(
+    'lionsExcelPreview'
+  );
 
-  if (!raw) {
+  const clubs =
+    new Set(
+      rows.map(
+        row =>
+          row.ClubID
+      )
+    ).size;
+
+  const presidents =
+    rows.filter(
+      row =>
+        row.Position ===
+        'PRESIDENT'
+    ).length;
+
+  const secretaries =
+    rows.filter(
+      row =>
+        row.Position ===
+        'SECRETARY'
+    ).length;
+
+  const invalidEmail =
+    rows.filter(
+      row =>
+        row.EmailStatus !==
+        'READY'
+    ).length;
+
+  preview.innerHTML = `
+    <div class="notice ok">
+      <b>${esc(fileName)}</b> read successfully.
+      ${sourceCount} source rows मध्ये
+      ${rows.length} President / Secretary records selected.
+    </div>
+
+    <div class="grid g4">
+      <div class="kpi">
+        <span>Clubs</span>
+        <strong>${clubs}</strong>
+      </div>
+
+      <div class="kpi">
+        <span>Presidents</span>
+        <strong>${presidents}</strong>
+      </div>
+
+      <div class="kpi">
+        <span>Secretaries</span>
+        <strong>${secretaries}</strong>
+      </div>
+
+      <div class="kpi">
+        <span>Invalid Email</span>
+        <strong>${invalidEmail}</strong>
+      </div>
+    </div>
+
+    ${invalidEmail
+      ? `
+        <div class="notice error">
+          ${invalidEmail} officer record(s) मा valid Personal Email छैन।
+          ती officer को account Email OTP बाट create हुँदैन
+          जबसम्म Lions master मा email सही हुँदैन।
+        </div>
+      `
+      : ''
+    }
+
+    <div
+      class="table-wrap"
+      style="margin-top:14px;max-height:430px;overflow:auto"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Club</th>
+            <th>Club ID</th>
+            <th>Position</th>
+            <th>Member ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Mobile</th>
+            <th>Zone</th>
+            <th>Term</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>${esc(row.ClubName)}</td>
+              <td>${esc(row.ClubID)}</td>
+              <td>${esc(row.Position)}</td>
+              <td>${esc(row.LionID)}</td>
+              <td>${esc(row.OfficerName)}</td>
+              <td>${esc(row.Email || '-')}</td>
+              <td>${esc(row.Mobile || '-')}</td>
+              <td>${esc(row.ParentZone || '-')}</td>
+              <td>
+                ${esc(row.StartDate || '-')}
+                →
+                ${esc(row.EndDate || '-')}
+              </td>
+              <td>${esc(row.EmailStatus)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div
+      class="actions"
+      style="margin-top:14px"
+    >
+      <button
+        class="btn btn-primary"
+        onclick="importLionsOfficerExcelData()"
+      >
+        Import Selected President / Secretary Data
+      </button>
+    </div>
+  `;
+}
+
+
+async function importLionsOfficerExcelData() {
+  if (
+    !LIONS_OFFICER_IMPORT_ROWS.length
+  ) {
     alert(
-      'Paste Excel data first.'
+      'Read and preview the Excel file first.'
     );
     return;
   }
 
-  const parsed = raw
-    .split(/\r?\n/)
-    .map(line =>
-      line.split('\t')
-    )
-    .filter(columns =>
-      columns.length >=
-      6
-    );
-
-  if (!parsed.length) {
-    alert(
-      'Officer data could not be detected.'
-    );
-    return;
-  }
-
-  const first =
+  const fiscalYear =
     String(
-      parsed[0][0] ||
+      lionsImportFiscalYear.value ||
       ''
-    ).toLowerCase();
+    ).trim();
 
-  const rows =
-    first.includes(
-      'lion'
-    )
-      ? parsed.slice(1)
-      : parsed;
+  if (!fiscalYear) {
+    alert(
+      'Fiscal Year required. Example: 2026/27'
+    );
+    return;
+  }
 
-  const payloadRows =
-    rows.map(columns => ({
-      LionID:
-        columns[0] ||
-        '',
-      ClubID:
-        columns[1] ||
-        '',
-      ClubName:
-        columns[2] ||
-        '',
-      OfficerName:
-        columns[3] ||
-        '',
-      Position:
-        columns[4] ||
-        '',
-      Email:
-        columns[5] ||
-        '',
-      Mobile:
-        columns[6] ||
-        ''
-    }));
+  const clubs =
+    new Set(
+      LIONS_OFFICER_IMPORT_ROWS.map(
+        row =>
+          row.ClubID
+      )
+    ).size;
 
   if (
     !confirm(
       'Import ' +
-      payloadRows.length +
-      ' officers for ' +
-      officerImportYear.value +
-      '? Existing rows of the same year will be made inactive first.'
+      LIONS_OFFICER_IMPORT_ROWS.length +
+      ' President/Secretary records for ' +
+      clubs +
+      ' clubs in Fiscal Year ' +
+      fiscalYear +
+      '?'
     )
   ) {
     return;
@@ -3275,25 +3619,33 @@ async function importClubOfficers() {
 
   try {
     showLoading(
-      'Importing officers...'
+      'Preparing Club master and officer verification data...'
     );
 
     const result = await api(
       'adminImportClubOfficers',
       {
         fiscalYear:
-          officerImportYear.value.trim(),
+          fiscalYear,
         rows:
-          payloadRows
+          LIONS_OFFICER_IMPORT_ROWS
       }
     );
 
-    closeModal();
-
     alert(
+      'Import completed.\n\n' +
+      'Officers: ' +
       result.imported +
-      ' officer records imported.'
+      '\n' +
+      'Clubs prepared: ' +
+      result.clubsPrepared +
+      '\n' +
+      'Invalid/Missing Email: ' +
+      result.invalidEmail
     );
+
+    LIONS_OFFICER_IMPORT_ROWS =
+      [];
 
     await loadAdminClubOfficers();
 
