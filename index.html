@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.6.1
+  FINAL BASE v1.6.2
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -221,100 +221,131 @@ r.onerror=rej;
 
 r.readAsDataURL(f)})}
 
-async function api(action,payload={},token=TOKEN){
-  if(!API||API.includes('PASTE_YOUR')) throw new Error('config.js मा Apps Script Web App URL राख्नुहोस्।');
+async function api(
+  action,
+  payload = {}
+) {
+  const controller =
+    new AbortController();
 
-  const res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload,token})});
+  const timeout =
+    setTimeout(
+      () => {
+        controller.abort();
+      },
+      20000
+    );
 
-  const d=await res.json();
-
-if(!d.ok)throw new Error(d.error||'Request failed');
-
-return d;
-
-}
-
-/* =========================================================
-   VERIFIED SELF REGISTRATION + EMAIL OTP
-========================================================= */
-
-let REGISTRATION_TYPE =
-  'CLUB';
-
-let REGISTRATION_OTP_REQUEST_ID =
-  '';
-
-async function openRegistration() {
   try {
-    showLoading(
-      'Loading registration...'
-    );
+    const response =
+      await fetch(
+        window.ZR_CONFIG.API_URL,
+        {
+          method:
+            'POST',
 
-    const info = await api(
-      'registrationInfo',
-      {},
-      ''
-    );
+          headers: {
+            'Content-Type':
+              'text/plain;charset=utf-8'
+          },
 
-    REGISTRATION_TYPE =
-      'CLUB';
+          body:
+            JSON.stringify({
+              action:
+                action,
+              token:
+                TOKEN ||
+                '',
+              payload:
+                payload
+            }),
 
-    REGISTRATION_OTP_REQUEST_ID =
-      '';
+          redirect:
+            'follow',
 
-    showModal(`
-      <div class="row">
-        <h2>Create Account</h2>
+          signal:
+            controller.signal
+        }
+      );
 
-        <div class="spacer"></div>
+    const rawText =
+      await response.text();
 
-        <button
-          class="btn btn-light"
-          onclick="closeModal()"
-        >
-          Close
-        </button>
-      </div>
+    if (!response.ok) {
+      throw new Error(
+        'Backend HTTP error ' +
+        response.status +
+        '.'
+      );
+    }
 
-      <div class="notice ok">
-        Current Fiscal Year:
-        <b>${esc(info.fiscalYear || '')}</b>
-        <br>
-        Official email OTP verification is mandatory.
-      </div>
+    const trimmed =
+      String(
+        rawText ||
+        ''
+      ).trim();
 
-      <div class="reg-switch">
-        <button
-          id="regClubTab"
-          class="active"
-          onclick="switchRegistration('CLUB')"
-        >
-          President / Secretary
-        </button>
+    /*
+     * Apps Script deployment/login page or wrong Web App URL
+     * often returns HTML beginning with <!DOCTYPE...
+     */
+    if (
+      trimmed.startsWith(
+        '<'
+      )
+    ) {
+      throw new Error(
+        'Backend returned an HTML page instead of JSON. Please check Apps Script Web App deployment, access setting (Anyone), and config.js API_URL.'
+      );
+    }
 
-        <button
-          id="regZoneTab"
-          onclick="switchRegistration('ZONE')"
-        >
-          Zone Chairperson
-        </button>
-      </div>
+    let result;
 
-      <div id="registrationForm"></div>
-    `);
+    try {
+      result =
+        JSON.parse(
+          trimmed
+        );
 
-    renderRegistrationForm();
+    } catch (parseError) {
+      throw new Error(
+        'Backend response is not valid JSON. Please redeploy the latest Code.gs version.'
+      );
+    }
+
+    if (
+      result &&
+      result.ok ===
+      false
+    ) {
+      throw new Error(
+        result.error ||
+        'Request failed.'
+      );
+    }
+
+    return result;
 
   } catch (error) {
-    alert(
-      error.message
-    );
+    if (
+      error.name ===
+      'AbortError'
+    ) {
+      throw new Error(
+        'Server response timed out after 20 seconds. Please retry. If this continues, check Apps Script deployment and backend execution log.'
+      );
+    }
+
+    throw error;
 
   } finally {
-    hideLoading();
-
+    clearTimeout(
+      timeout
+    );
   }
 }
+
+
 
 function switchRegistration(
   type
@@ -2587,6 +2618,13 @@ function renderAdminShell() {
 
       <button
         class="tab"
+        onclick="adminTab('security', this)"
+      >
+        Account Security
+      </button>
+
+      <button
+        class="tab"
         onclick="adminTab('officers', this)"
       >
         Club Officers
@@ -2599,6 +2637,7 @@ function renderAdminShell() {
     <div id="adminZonechairsTab" class="hide"></div>
     <div id="adminMappingTab" class="hide"></div>
     <div id="adminYearTab" class="hide"></div>
+    <div id="adminSecurityTab" class="hide"></div>
     <div id="adminOfficersTab" class="hide"></div>
   `;
 
@@ -2618,7 +2657,8 @@ function adminTab(name, button) {
     'Zonechairs',
     'Mapping',
     'Year',
-    'Officers'
+    'Officers',
+    'Security'
   ].forEach(section => {
     $('admin' + section + 'Tab').classList.add('hide');
 
@@ -2664,6 +2704,14 @@ function adminTab(name, button) {
     'officers'
   ) {
     loadAdminClubOfficers();
+  }
+
+
+  if (
+    name ===
+    'security'
+  ) {
+    loadAdminAccountSecurity();
   }
 }
 
@@ -3044,6 +3092,324 @@ await api('adminSaveClub',{ClubID:acId.value,ClubName:acName.value,ZoneID:acZone
 closeModal();
 
 loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+/* =========================================================
+   ADMIN: ACCOUNT SECURITY
+========================================================= */
+
+async function loadAdminAccountSecurity() {
+  try {
+    showLoading(
+      'Loading Admin security...'
+    );
+
+    const data =
+      await api(
+        'adminGetAccountSecurity'
+      );
+
+    const account =
+      data.account ||
+      {};
+
+    adminSecurityTab.innerHTML = `
+      <div class="card">
+        <h2>Admin Account Security</h2>
+
+        <div class="notice ok">
+          Admin username/password source code मा plain text राखिएको छैन।
+          Password database मा salted hash को रूपमा मात्र रहन्छ।
+        </div>
+
+        <div class="grid g2">
+          <div class="field">
+            <label>Current Username</label>
+
+            <input
+              value="${esc(account.username || '')}"
+              disabled
+            >
+          </div>
+
+          <div class="field">
+            <label>Last Updated</label>
+
+            <input
+              value="${esc(account.updatedAt || '-')}"
+              disabled
+            >
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <h3>Change Admin Password</h3>
+
+        <div class="grid g2">
+          <div class="field">
+            <label>Current Password</label>
+
+            <input
+              id="adminCurrentPassword"
+              type="password"
+              autocomplete="current-password"
+            >
+          </div>
+
+          <div></div>
+
+          <div class="field">
+            <label>New Password</label>
+
+            <input
+              id="adminNewPassword"
+              type="password"
+              autocomplete="new-password"
+            >
+          </div>
+
+          <div class="field">
+            <label>Confirm New Password</label>
+
+            <input
+              id="adminConfirmPassword"
+              type="password"
+              autocomplete="new-password"
+            >
+          </div>
+        </div>
+
+        <div class="notice">
+          Minimum 10 characters. Password change भएपछि सबै Admin sessions revoke हुन्छन् र पुनः login गर्नुपर्छ।
+        </div>
+
+        <button
+          class="btn btn-primary"
+          onclick="changeAdminPassword()"
+        >
+          Change Password
+        </button>
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <h3>Change Admin Username</h3>
+
+        <div class="grid g2">
+          <div class="field">
+            <label>New Username</label>
+
+            <input
+              id="adminNewUsername"
+              value="${esc(account.username || '')}"
+              autocomplete="username"
+            >
+          </div>
+
+          <div class="field">
+            <label>Current Password</label>
+
+            <input
+              id="adminUsernameCurrentPassword"
+              type="password"
+              autocomplete="current-password"
+            >
+          </div>
+        </div>
+
+        <div class="notice">
+          Username change भएपछि पनि सबै Admin sessions revoke हुन्छन्।
+        </div>
+
+        <button
+          class="btn btn-light"
+          onclick="changeAdminUsername()"
+        >
+          Change Username
+        </button>
+      </div>
+    `;
+
+  } catch (error) {
+    adminSecurityTab.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+async function changeAdminPassword() {
+  const currentPassword =
+    adminCurrentPassword.value;
+
+  const newPassword =
+    adminNewPassword.value;
+
+  const confirmPassword =
+    adminConfirmPassword.value;
+
+  if (
+    !currentPassword ||
+    !newPassword ||
+    !confirmPassword
+  ) {
+    alert(
+      'All password fields are required.'
+    );
+    return;
+  }
+
+  if (
+    newPassword !==
+    confirmPassword
+  ) {
+    alert(
+      'New password and confirmation do not match.'
+    );
+    return;
+  }
+
+  if (
+    newPassword.length <
+    10
+  ) {
+    alert(
+      'New Admin password must be at least 10 characters.'
+    );
+    return;
+  }
+
+  if (
+    !confirm(
+      'Change Admin password now? You will be logged out from all Admin sessions.'
+    )
+  ) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Changing Admin password...'
+    );
+
+    await api(
+      'adminChangePassword',
+      {
+        currentPassword:
+          currentPassword,
+        newPassword:
+          newPassword
+      }
+    );
+
+    alert(
+      'Admin password changed successfully. Please login again.'
+    );
+
+    TOKEN =
+      '';
+
+    USER =
+      null;
+
+    localStorage.removeItem(
+      'zr_token'
+    );
+
+    location.reload();
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+async function changeAdminUsername() {
+  const newUsername =
+    String(
+      adminNewUsername.value ||
+      ''
+    ).trim();
+
+  const currentPassword =
+    adminUsernameCurrentPassword.value;
+
+  if (
+    !newUsername ||
+    !currentPassword
+  ) {
+    alert(
+      'New username and current password are required.'
+    );
+    return;
+  }
+
+  if (
+    !confirm(
+      'Change Admin username to "' +
+      newUsername +
+      '"? You will be logged out from all Admin sessions.'
+    )
+  ) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Changing Admin username...'
+    );
+
+    await api(
+      'adminChangeUsername',
+      {
+        currentPassword:
+          currentPassword,
+        newUsername:
+          newUsername
+      }
+    );
+
+    alert(
+      'Admin username changed successfully. Please login again with the new username.'
+    );
+
+    TOKEN =
+      '';
+
+    USER =
+      null;
+
+    localStorage.removeItem(
+      'zr_token'
+    );
+
+    location.reload();
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
 
 /* =========================================================
    ADMIN: CLUB OFFICER MASTER / YEARLY IMPORT
