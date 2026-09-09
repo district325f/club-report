@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.6.6
+  FINAL BASE v1.6.7
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -767,6 +767,78 @@ async function api(
   }
 }
 
+
+
+
+/* =========================================================
+   CREATE ACCOUNT ENTRY
+   v1.6.7 targeted fix
+   Existing registration/OTP logic remains unchanged.
+========================================================= */
+
+function openRegistration() {
+  showModal(`
+    <div class="row">
+      <div>
+        <h2>Create Account</h2>
+        <div class="muted">
+          Official master data अनुसार Club वा Zone account create गर्नुहोस्।
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        type="button"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <div
+      class="tabs"
+      style="margin-top:16px"
+    >
+      <button
+        id="regClubTab"
+        class="tab active"
+        type="button"
+        onclick="switchRegistration(
+          'CLUB',
+          this
+        )"
+      >
+        Club President / Secretary
+      </button>
+
+      <button
+        id="regZoneTab"
+        class="tab"
+        type="button"
+        onclick="switchRegistration(
+          'ZONE',
+          this
+        )"
+      >
+        Zone Chairperson
+      </button>
+    </div>
+
+    <div id="registrationForm"></div>
+  `);
+
+  const clubTab =
+    document.getElementById(
+      'regClubTab'
+    );
+
+  switchRegistration(
+    'CLUB',
+    clubTab
+  );
+}
 
 
 function switchRegistration(
