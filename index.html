@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.6.4
+  FINAL BASE v1.6.5
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -5001,35 +5001,651 @@ async function importZoneChairExcel() {
   }
 }
 
-async function loadAdminMappings(){try{showLoading('Loading mappings...');
 
-const [m,u,c]=await Promise.all([api('adminListMappings'),api('adminListUsers'),api('adminListClubs')]);
+async function loadAdminMappings() {
+  try {
+    showLoading(
+      'Loading mappings...'
+    );
 
-const zoneUsers=u.users.filter(x=>x.role==='ZONE'&&x.active);
+    const [
+      mappingData,
+      userData,
+      clubData
+    ] = await Promise.all([
+      api(
+        'adminListMappings'
+      ),
+      api(
+        'adminListUsers'
+      ),
+      api(
+        'adminListClubs'
+      )
+    ]);
 
-adminMappingTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone → Club Mapping</h2><div class="spacer"></div><button class="btn btn-gold" onclick='openMappingForm(${JSON.stringify(c.clubs)},${JSON.stringify(zoneUsers)})'>+ Add Mapping</button></div><div class="notice">एक Zone Chairperson को under मा सामान्यतया 4–8 clubs mapping गर्न सकिन्छ। Zone Chairperson login भएपछि यही mapping अनुसार clubs मात्र देखिन्छन्।</div><div class="table-wrap"><table><tr><th>Zone</th><th>Club</th><th>Chairperson User ID</th><th>Status</th><th>Action</th></tr>${m.mappings.map(x=>`<tr><td>${esc(x.ZoneID)} ${esc(x.ZoneName||'')}</td><td>${esc(x.ClubName)} (${esc(x.ClubID)})</td><td>${esc(x.ChairpersonUserID||'-')}</td><td>${esc(x.Active)}</td><td><button class="btn ${String(x.Active)==='TRUE'?'btn-danger':'btn-ok'}" onclick="setMappingActive('${esc(x.MapID)}',${String(x.Active)!=='TRUE'})">${String(x.Active)==='TRUE'?'Deactivate':'Activate'}</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminMappingTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+    const zoneUsers =
+      userData.users.filter(user => {
+        return (
+          user.role ===
+            'ZONE' &&
+          user.active
+        );
+      });
 
-function openMappingForm(clubs,zoneUsers){showModal(`<div class="row"><h2>Add Zone Mapping</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club</label><select id="amClub" onchange="fillZoneFromClub()">${clubs.map(c=>`<option value="${esc(c.ClubID)}" data-zone="${esc(c.ZoneID)}" data-zname="${esc(c.ZoneName||'')}">${esc(c.ClubName)} (${esc(c.ClubID)})</option>`).join('')}</select></div><div class="field"><label>Zone Chairperson</label><select id="amChair"><option value="">-- Select --</option>${zoneUsers.map(u=>`<option value="${esc(u.userId)}" data-zone="${esc(u.zoneId)}">${esc(u.displayName)} — ${esc(u.zoneId)}</option>`).join('')}</select></div><div class="field"><label>Zone ID</label><input id="amZone"></div><div class="field"><label>Zone Name</label><input id="amZoneName"></div></div><button class="btn btn-primary" onclick="saveMapping()">Save Mapping</button>`);
+    const mappings =
+      mappingData.mappings ||
+      [];
 
-fillZoneFromClub()}
+    adminMappingTab.innerHTML = `
+      <div class="card">
+        <div class="section-title">
+          <div>
+            <h2>Zone → Club Auto Mapping</h2>
+            <div class="muted">
+              Club Excel को Parent Zone र Zone Chairperson Master को Zone ID
+              अनुसार mapping automatically तयार हुन्छ।
+            </div>
+          </div>
 
-function fillZoneFromClub(){const o=amClub.options[amClub.selectedIndex];
+          <div class="spacer"></div>
 
-amZone.value=o?.dataset.zone||'';
+          <button
+            class="btn btn-gold"
+            onclick="rebuildAutoZoneMappings()"
+          >
+            ↻ Rebuild Auto Mapping
+          </button>
 
-amZoneName.value=o?.dataset.zname||''}
+          <button
+            class="btn btn-light"
+            onclick='openMappingForm(
+              ${JSON.stringify(
+                clubData.clubs
+              )},
+              ${JSON.stringify(
+                zoneUsers
+              )}
+            )'
+          >
+            Manual Override
+          </button>
+        </div>
 
-async function saveMapping(){try{showLoading('Saving mapping...');
+        <div class="notice">
+          Normal अवस्थामा Admin ले club-by-club mapping गर्नु पर्दैन।
+          Manual Override exceptional correction वा temporary reassignment
+          को लागि मात्र हो।
+        </div>
 
-await api('adminSaveMapping',{ClubID:amClub.value,ZoneID:amZone.value,ZoneName:amZoneName.value,ChairpersonUserID:amChair.value,Active:true});
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>Zone</th>
+              <th>Zone Chairperson</th>
+              <th>Club</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
 
-closeModal();
+            ${mappings.map(mapping => {
+              const source =
+                String(
+                  mapping.MappingSource ||
+                  'MANUAL_LEGACY'
+                );
 
-loadAdminMappings()}catch(e){alert(e.message)}finally{hideLoading()}}
+              const status =
+                String(
+                  mapping.MappingStatus ||
+                  ''
+                );
 
-async function setMappingActive(id,active){try{await api('adminSetMappingActive',{mapId:id,active});
+              const isManual =
+                source ===
+                  'MANUAL' ||
+                source ===
+                  'MANUAL_LEGACY';
 
-loadAdminMappings()}catch(e){alert(e.message)}}
+              return `
+                <tr>
+                  <td>
+                    ${esc(
+                      mapping.ZoneID ||
+                      ''
+                    )}
+                    ${esc(
+                      mapping.ZoneName ||
+                      ''
+                    )}
+                  </td>
+
+                  <td>
+                    ${esc(
+                      mapping.ChairpersonName ||
+                      '-'
+                    )}
+                    <div class="muted">
+                      ${
+                        mapping.ChairpersonUserID
+                          ? 'Account linked'
+                          : 'Account not linked yet'
+                      }
+                    </div>
+                  </td>
+
+                  <td>
+                    ${esc(
+                      mapping.ClubName ||
+                      ''
+                    )}
+                    (${esc(
+                      mapping.ClubID ||
+                      ''
+                    )})
+                  </td>
+
+                  <td>
+                    <b>
+                      ${esc(
+                        source
+                      )}
+                    </b>
+                  </td>
+
+                  <td>
+                    ${mappingStatusBadge(
+                      status
+                    )}
+                  </td>
+
+                  <td>
+                    ${
+                      isManual
+                        ? `
+                          <button
+                            class="btn btn-light"
+                            onclick="returnMappingToAuto(
+                              '${esc(
+                                mapping.MapID
+                              )}'
+                            )"
+                          >
+                            Return to Auto
+                          </button>
+                        `
+                        : `
+                          <button
+                            class="btn btn-light"
+                            onclick='openMappingForm(
+                              ${JSON.stringify(
+                                clubData.clubs
+                              )},
+                              ${JSON.stringify(
+                                zoneUsers
+                              )},
+                              "${esc(
+                                mapping.ClubID
+                              )}"
+                            )'
+                          >
+                            Override
+                          </button>
+                        `
+                    }
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </table>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    adminMappingTab.innerHTML = `
+      <div class="notice error">
+        ${esc(
+          error.message
+        )}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+function mappingStatusBadge(
+  status
+) {
+  const value =
+    String(
+      status ||
+      ''
+    );
+
+  const labels = {
+    READY:
+      'READY',
+
+    WAITING_FOR_ACCOUNT:
+      'WAITING FOR ACCOUNT',
+
+    NO_CHAIRPERSON_FOUND:
+      'NO CHAIRPERSON FOUND',
+
+    DUPLICATE_ZONE_DATA:
+      'DUPLICATE ZONE DATA',
+
+    MANUAL_OVERRIDE:
+      'MANUAL OVERRIDE',
+
+    WAITING_FOR_REBUILD:
+      'WAITING FOR REBUILD'
+  };
+
+  return `
+    <span class="badge">
+      ${esc(
+        labels[
+          value
+        ] ||
+        value ||
+        '-'
+      )}
+    </span>
+  `;
+}
+
+
+async function rebuildAutoZoneMappings() {
+  const confirmed =
+    await appConfirm(
+      'Club master र current Zone Chairperson master अनुसार सबै AUTO mappings rebuild गर्ने?',
+      'Rebuild Auto Zone Mapping'
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Rebuilding Zone mappings...'
+    );
+
+    const result =
+      await api(
+        'adminRebuildZoneMappings'
+      );
+
+    await appAlert(
+      [
+        'Auto mapping completed.',
+        '',
+        'Total Clubs: ' +
+          result.totalClubs,
+        'Ready: ' +
+          result.ready,
+        'Waiting for Account: ' +
+          result.waitingAccount,
+        'No Chairperson: ' +
+          result.noChairperson,
+        'Duplicate Zone Data: ' +
+          result.duplicate,
+        'Manual Preserved: ' +
+          result.manualPreserved
+      ].join(
+        '\n'
+      ),
+      'Zone Mapping Updated'
+    );
+
+    await loadAdminMappings();
+
+  } catch (error) {
+    await appAlert(
+      error.message,
+      'Mapping Error'
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+function openMappingForm(
+  clubs,
+  zoneUsers,
+  selectedClubId =
+    ''
+) {
+  showModal(`
+    <div class="row">
+      <div>
+        <h2>Manual Zone Mapping Override</h2>
+        <div class="muted">
+          Exceptional correction वा temporary reassignment को लागि मात्र।
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <div class="grid g2">
+      <div class="field">
+        <label>Club</label>
+
+        <select
+          id="amClub"
+          onchange="fillZoneFromClub()"
+        >
+          ${clubs.map(club => {
+            return `
+              <option
+                value="${esc(
+                  club.ClubID
+                )}"
+                data-zone="${esc(
+                  club.ZoneID ||
+                  ''
+                )}"
+                data-zname="${esc(
+                  club.ZoneName ||
+                  club.ZoneID ||
+                  ''
+                )}"
+                ${
+                  String(
+                    club.ClubID
+                  ) ===
+                  String(
+                    selectedClubId
+                  )
+                    ? 'selected'
+                    : ''
+                }
+              >
+                ${esc(
+                  club.ClubName
+                )}
+                (${esc(
+                  club.ClubID
+                )})
+              </option>
+            `;
+          }).join('')}
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Zone Chairperson User</label>
+
+        <select
+          id="amChair"
+        >
+          <option value="">
+            -- Select --
+          </option>
+
+          ${zoneUsers.map(user => {
+            return `
+              <option
+                value="${esc(
+                  user.userId
+                )}"
+                data-zone="${esc(
+                  user.zoneId
+                )}"
+              >
+                ${esc(
+                  user.displayName
+                )}
+                — ${esc(
+                  user.zoneId
+                )}
+              </option>
+            `;
+          }).join('')}
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Zone ID</label>
+
+        <input
+          id="amZone"
+          readonly
+        >
+      </div>
+
+      <div class="field">
+        <label>Zone Name</label>
+
+        <input
+          id="amZoneName"
+        >
+      </div>
+
+      <div class="field">
+        <label>Override Reason</label>
+
+        <input
+          id="amReason"
+          placeholder="Optional reason"
+        >
+      </div>
+    </div>
+
+    <button
+      class="btn btn-primary"
+      onclick="saveMapping()"
+    >
+      Save Manual Override
+    </button>
+  `);
+
+  fillZoneFromClub();
+}
+
+
+function fillZoneFromClub() {
+  const option =
+    amClub.options[
+      amClub.selectedIndex
+    ];
+
+  amZone.value =
+    option
+      ?.dataset
+      .zone ||
+    '';
+
+  amZoneName.value =
+    option
+      ?.dataset
+      .zname ||
+    '';
+}
+
+
+async function saveMapping() {
+  if (
+    !amChair.value
+  ) {
+    await appAlert(
+      'Manual Override गर्न Zone Chairperson User select गर्नुहोस्।',
+      'Zone Chairperson Required'
+    );
+
+    return;
+  }
+
+  const selectedChair =
+    amChair.options[
+      amChair.selectedIndex
+    ];
+
+  if (
+    String(
+      selectedChair
+        ?.dataset
+        .zone ||
+      ''
+    ) !==
+    String(
+      amZone.value ||
+      ''
+    )
+  ) {
+    await appAlert(
+      'Selected Zone Chairperson को Zone र Club को Zone मिलेन।',
+      'Zone Mismatch'
+    );
+
+    return;
+  }
+
+  const confirmed =
+    await appConfirm(
+      'यो Club को automatic mapping लाई Manual Override गर्ने?',
+      'Manual Override'
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Saving Manual Override...'
+    );
+
+    await api(
+      'adminSaveMapping',
+      {
+        ClubID:
+          amClub.value,
+
+        ZoneID:
+          amZone.value,
+
+        ZoneName:
+          amZoneName.value,
+
+        ChairpersonUserID:
+          amChair.value,
+
+        OverrideReason:
+          amReason.value,
+
+        Active:
+          true
+      }
+    );
+
+    closeModal();
+
+    await appAlert(
+      'Manual Override saved.',
+      'Mapping Updated'
+    );
+
+    await loadAdminMappings();
+
+  } catch (error) {
+    await appAlert(
+      error.message,
+      'Mapping Error'
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+async function returnMappingToAuto(
+  mapId
+) {
+  const confirmed =
+    await appConfirm(
+      'यो mapping लाई फेरि Club/Zone master अनुसार AUTO मा फर्काउने?',
+      'Return to Auto'
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Returning mapping to Auto...'
+    );
+
+    await api(
+      'adminReturnMappingAuto',
+      {
+        mapId:
+          mapId
+      }
+    );
+
+    await appAlert(
+      'Mapping returned to AUTO.',
+      'Zone Mapping Updated'
+    );
+
+    await loadAdminMappings();
+
+  } catch (error) {
+    await appAlert(
+      error.message,
+      'Mapping Error'
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
+
+
+async function setMappingActive(
+  id,
+  active
+) {
+  try {
+    await api(
+      'adminSetMappingActive',
+      {
+        mapId:
+          id,
+        active:
+          active
+      }
+    );
+
+    await loadAdminMappings();
+
+  } catch (error) {
+    await appAlert(
+      error.message,
+      'Mapping Error'
+    );
+  }
+}
+
 
 restore();
 </script>
