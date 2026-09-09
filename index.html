@@ -16,7 +16,24 @@ button,input,select,textarea{font:inherit}.hide{display:none!important}
 .brand{font-weight:800}.brand small{display:block;font-size:11px;font-weight:400;opacity:.78}.spacer{flex:1}.user-badge{font-size:13px}
 .wrap{max-width:1280px;margin:20px auto;padding:0 15px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 8px 28px #1636570b}
 .login-shell{min-height:calc(100vh - 68px);display:grid;place-items:center}.login-card{width:min(430px,94vw)}
-.logo-circle{width:82px;height:82px;border-radius:50%;border:4px solid var(--gold);display:grid;place-items:center;margin:0 auto 14px;color:var(--blue);font-weight:900}
+.logo-circle {
+  width: 82px;
+  height: 82px;
+  border: 4px solid var(--gold);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.login-logo {
+  width: 66px;
+  height: 66px;
+  display: block;
+  object-fit: contain;
+}
 h1,h2,h3{color:var(--blue);margin-top:0}.muted{color:var(--muted)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}.field label{font-size:12px;font-weight:700;color:#4b5969}
 input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;border-radius:9px;background:#fff}textarea{min-height:86px;resize:vertical}
@@ -65,7 +82,13 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
 
 <div id="loginView" class="login-shell">
   <div class="card login-card">
-    <div class="logo-circle">LIONS</div>
+    <div class="logo-circle">
+      <img
+        src="logo.png"
+        alt="Lions Club Logo"
+        class="login-logo"
+      >
+    </div>
     <h2 style="text-align:center">System Login</h2>
     <p class="muted" style="text-align:center">Club • Zone Chairperson • District Admin</p>
     <div id="loginMsg"></div>
