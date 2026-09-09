@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.3.0
+  FINAL BASE v1.4.0
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="config.js">
@@ -118,7 +118,21 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
 <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
 <div class="login-switch">
 <span class="muted">President / Secretary / Zone Chairperson?</span>
-<button class="text-link" onclick="openRegistration()">Create Account</button>
+<button
+  class="text-link"
+  onclick="openRegistration()"
+>
+  Create Account
+</button>
+
+&nbsp; | &nbsp;
+
+<button
+  class="text-link"
+  onclick="openForgotPassword()"
+>
+  Forgot Password
+</button>
 </div>
 </div>
 </div>
@@ -149,6 +163,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 const num=v=>{const n=Number(v);
+
 return Number.isFinite(n)?n:0};
 
 const currentMonth=()=>new Date().toISOString().slice(0,7);
@@ -156,16 +171,21 @@ const currentMonth=()=>new Date().toISOString().slice(0,7);
 const money=n=>new Intl.NumberFormat().format(num(n));
 
 function dateOnly(v){if(!v)return'';
+
 const s=String(v);
+
 if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
+
 return''}
 
 function showLoading(t='Processing...'){$('loadingText').textContent=t;
+
 $('loading').classList.remove('hide')}
 
 function hideLoading(){$('loading').classList.add('hide')}
 
 function showModal(html){$('modalCard').innerHTML=html;
+
 $('modal').classList.remove('hide')}
 
 function closeModal(){$('modal').classList.add('hide')}
@@ -173,8 +193,11 @@ function closeModal(){$('modal').classList.add('hide')}
 function notice(id,text,type=''){$(id).innerHTML=`<div class="notice ${type}">${esc(text)}</div>`}
 
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();
+
 r.onload=()=>res(r.result);
+
 r.onerror=rej;
+
 r.readAsDataURL(f)})}
 
 async function api(action,payload={},token=TOKEN){
@@ -183,41 +206,75 @@ async function api(action,payload={},token=TOKEN){
   const res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload,token})});
 
   const d=await res.json();
+
 if(!d.ok)throw new Error(d.error||'Request failed');
+
 return d;
 
 }
 
 /* =========================================================
-   VERIFIED SELF REGISTRATION
+   VERIFIED SELF REGISTRATION + EMAIL OTP
 ========================================================= */
-let REGISTRATION_TYPE = 'CLUB';
+
+let REGISTRATION_TYPE =
+  'CLUB';
+
+let REGISTRATION_OTP_REQUEST_ID =
+  '';
 
 async function openRegistration() {
   try {
-    showLoading('Loading registration...');
+    showLoading(
+      'Loading registration...'
+    );
 
-    const info = await api('registrationInfo', {}, '');
+    const info = await api(
+      'registrationInfo',
+      {},
+      ''
+    );
 
-    REGISTRATION_TYPE = 'CLUB';
+    REGISTRATION_TYPE =
+      'CLUB';
+
+    REGISTRATION_OTP_REQUEST_ID =
+      '';
 
     showModal(`
       <div class="row">
         <h2>Create Account</h2>
+
         <div class="spacer"></div>
-        <button class="btn btn-light" onclick="closeModal()">Close</button>
+
+        <button
+          class="btn btn-light"
+          onclick="closeModal()"
+        >
+          Close
+        </button>
       </div>
 
       <div class="notice ok">
-        Current Fiscal Year: <b>${esc(info.fiscalYear || '')}</b>
+        Current Fiscal Year:
+        <b>${esc(info.fiscalYear || '')}</b>
+        <br>
+        Official email OTP verification is mandatory.
       </div>
 
       <div class="reg-switch">
-        <button id="regClubTab" class="active" onclick="switchRegistration('CLUB')">
+        <button
+          id="regClubTab"
+          class="active"
+          onclick="switchRegistration('CLUB')"
+        >
           President / Secretary
         </button>
 
-        <button id="regZoneTab" onclick="switchRegistration('ZONE')">
+        <button
+          id="regZoneTab"
+          onclick="switchRegistration('ZONE')"
+        >
           Zone Chairperson
         </button>
       </div>
@@ -228,7 +285,9 @@ async function openRegistration() {
     renderRegistrationForm();
 
   } catch (error) {
-    alert(error.message);
+    alert(
+      error.message
+    );
 
   } finally {
     hideLoading();
@@ -236,99 +295,77 @@ async function openRegistration() {
   }
 }
 
-function switchRegistration(type) {
-  REGISTRATION_TYPE = type;
+function switchRegistration(
+  type
+) {
+  REGISTRATION_TYPE =
+    type;
 
-  regClubTab.classList.toggle('active', type === 'CLUB');
+  REGISTRATION_OTP_REQUEST_ID =
+    '';
 
-  regZoneTab.classList.toggle('active', type === 'ZONE');
+  regClubTab.classList.toggle(
+    'active',
+    type ===
+      'CLUB'
+  );
+
+  regZoneTab.classList.toggle(
+    'active',
+    type ===
+      'ZONE'
+  );
 
   renderRegistrationForm();
 
 }
 
 function renderRegistrationForm() {
-  if (REGISTRATION_TYPE === 'CLUB') {
+  if (
+    REGISTRATION_TYPE ===
+    'CLUB'
+  ) {
     registrationForm.innerHTML = `
       <div class="notice">
-        केवल current President वा Secretary को Lion ID + Club ID master record
-        match भएमा मात्र account create हुन्छ।
+        केवल current President / Secretary।
+        Lion ID + Club ID + official Personal Email match भएपछि
+        Email OTP पठाइन्छ।
       </div>
 
       <div class="grid g2">
         <div class="field">
           <label>Lion ID</label>
-          <input id="regLionId" inputmode="numeric">
-        </div>
 
-        <div class="field">
-          <label>Club ID</label>
-          <input id="regClubId">
-        </div>
-
-        <div class="field">
-          <label>Username</label>
-          <input id="regUsername">
-        </div>
-
-        <div class="field">
-          <label>Password</label>
-          <input id="regPassword" type="password">
-        </div>
-
-        <div class="field">
-          <label>Confirm Password</label>
-          <input id="regConfirm" type="password">
-        </div>
-      </div>
-
-      <button class="btn btn-primary" onclick="submitRegistration()">
-        Verify & Create Club Account
-      </button>
-    `;
-
-  } else {
-    registrationForm.innerHTML = `
-      <div class="notice">
-        Zone manually select गर्न पाइँदैन।
-        Member ID + Personal Email वा Mobile master data सँग match भएपछि
-        system ले Zone automatically detect गर्छ।
-      </div>
-
-      <div class="grid g2">
-        <div class="field">
-          <label>Member ID</label>
           <input
-            id="regMemberId"
+            id="regLionId"
             inputmode="numeric"
           >
         </div>
 
         <div class="field">
-          <label>Personal Email</label>
-          <input
-            id="regPersonalEmail"
-            type="email"
-            placeholder="Email वा Mobile मध्ये कम्तीमा एउटा"
-          >
+          <label>Club ID</label>
+
+          <input id="regClubId">
         </div>
 
         <div class="field">
-          <label>Mobile</label>
+          <label>Official Personal Email</label>
+
           <input
-            id="regMobile"
-            inputmode="tel"
-            placeholder="Email वा Mobile मध्ये कम्तीमा एउटा"
+            id="regPersonalEmail"
+            type="email"
           >
         </div>
 
         <div class="field">
           <label>Username</label>
+
           <input id="regUsername">
         </div>
 
         <div class="field">
           <label>Password</label>
+
           <input
             id="regPassword"
             type="password"
@@ -337,6 +374,7 @@ function renderRegistrationForm() {
 
         <div class="field">
           <label>Confirm Password</label>
+
           <input
             id="regConfirm"
             type="password"
@@ -345,46 +383,302 @@ function renderRegistrationForm() {
       </div>
 
       <button
-        class="btn btn-primary"
-        onclick="submitRegistration()"
+        id="regSendOtpBtn"
+        class="btn btn-light"
+        onclick="sendRegistrationOtp()"
       >
-        Verify Member ID & Create Zone Account
+        Send Email OTP
       </button>
+
+      <div
+        id="regOtpArea"
+        class="hide"
+        style="margin-top:14px"
+      >
+        <div
+          id="regOtpMessage"
+          class="notice ok"
+        ></div>
+
+        <div class="field">
+          <label>6-digit Email OTP</label>
+
+          <input
+            id="regOtpCode"
+            inputmode="numeric"
+            maxlength="6"
+          >
+        </div>
+
+        <button
+          class="btn btn-primary"
+          onclick="submitRegistration()"
+        >
+          Verify OTP & Create Club Account
+        </button>
+      </div>
+    `;
+
+  } else {
+    registrationForm.innerHTML = `
+      <div class="notice">
+        Zone manually select गर्न पाइँदैन।
+        Member ID + official Personal Email match भएपछि
+        Email OTP पठाइन्छ र Zone automatically detect हुन्छ।
+      </div>
+
+      <div class="grid g2">
+        <div class="field">
+          <label>Member ID</label>
+
+          <input
+            id="regMemberId"
+            inputmode="numeric"
+          >
+        </div>
+
+        <div class="field">
+          <label>Official Personal Email</label>
+
+          <input
+            id="regPersonalEmail"
+            type="email"
+          >
+        </div>
+
+        <div class="field">
+          <label>Username</label>
+
+          <input id="regUsername">
+        </div>
+
+        <div class="field">
+          <label>Password</label>
+
+          <input
+            id="regPassword"
+            type="password"
+          >
+        </div>
+
+        <div class="field">
+          <label>Confirm Password</label>
+
+          <input
+            id="regConfirm"
+            type="password"
+          >
+        </div>
+      </div>
+
+      <button
+        id="regSendOtpBtn"
+        class="btn btn-light"
+        onclick="sendRegistrationOtp()"
+      >
+        Send Email OTP
+      </button>
+
+      <div
+        id="regOtpArea"
+        class="hide"
+        style="margin-top:14px"
+      >
+        <div
+          id="regOtpMessage"
+          class="notice ok"
+        ></div>
+
+        <div class="field">
+          <label>6-digit Email OTP</label>
+
+          <input
+            id="regOtpCode"
+            inputmode="numeric"
+            maxlength="6"
+          >
+        </div>
+
+        <button
+          class="btn btn-primary"
+          onclick="submitRegistration()"
+        >
+          Verify OTP & Create Zone Account
+        </button>
+      </div>
     `;
 
   }
 }
 
+async function sendRegistrationOtp() {
+  try {
+    showLoading(
+      'Checking official data and sending Email OTP...'
+    );
+
+    let result;
+
+    if (
+      REGISTRATION_TYPE ===
+      'CLUB'
+    ) {
+      result = await api(
+        'sendClubRegistrationOtp',
+        {
+          lionId:
+            regLionId.value.trim(),
+
+          clubId:
+            regClubId.value.trim(),
+
+          personalEmail:
+            regPersonalEmail.value.trim(),
+
+          username:
+            regUsername.value.trim()
+        },
+        ''
+      );
+
+    } else {
+      result = await api(
+        'sendZoneRegistrationOtp',
+        {
+          memberId:
+            regMemberId.value.trim(),
+
+          personalEmail:
+            regPersonalEmail.value.trim(),
+
+          username:
+            regUsername.value.trim()
+        },
+        ''
+      );
+
+    }
+
+    REGISTRATION_OTP_REQUEST_ID =
+      result.requestId;
+
+    regOtpArea.classList.remove(
+      'hide'
+    );
+
+    regSendOtpBtn.textContent =
+      'Resend Email OTP';
+
+    regOtpMessage.textContent =
+      'OTP sent to ' +
+      result.maskedEmail +
+      '.';
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
 async function submitRegistration() {
-  if (regPassword.value !== regConfirm.value) {
-    alert('Password and Confirm Password do not match.');
+  if (
+    regPassword.value !==
+    regConfirm.value
+  ) {
+    alert(
+      'Password and Confirm Password do not match.'
+    );
+
+    return;
+
+  }
+
+  if (
+    !REGISTRATION_OTP_REQUEST_ID
+  ) {
+    alert(
+      'Send Email OTP first.'
+    );
+
+    return;
+
+  }
+
+  if (
+    !regOtpCode.value.trim()
+  ) {
+    alert(
+      'Enter the Email OTP.'
+    );
 
     return;
 
   }
 
   try {
-    showLoading('Verifying account...');
+    showLoading(
+      'Verifying OTP and creating account...'
+    );
 
     let result;
 
-    if (REGISTRATION_TYPE === 'CLUB') {
-      result = await api('registerClubOfficer', {
-        lionId: regLionId.value.trim(),
-        clubId: regClubId.value.trim(),
-        username: regUsername.value.trim(),
-        password: regPassword.value
-      }, '');
+    if (
+      REGISTRATION_TYPE ===
+      'CLUB'
+    ) {
+      result = await api(
+        'registerClubOfficer',
+        {
+          lionId:
+            regLionId.value.trim(),
+
+          clubId:
+            regClubId.value.trim(),
+
+          personalEmail:
+            regPersonalEmail.value.trim(),
+
+          username:
+            regUsername.value.trim(),
+
+          password:
+            regPassword.value,
+
+          otpRequestId:
+            REGISTRATION_OTP_REQUEST_ID,
+
+          otpCode:
+            regOtpCode.value.trim()
+        },
+        ''
+      );
 
     } else {
       result = await api(
         'registerZoneChairperson',
         {
-          memberId: regMemberId.value.trim(),
-          personalEmail: regPersonalEmail.value.trim(),
-          mobile: regMobile.value.trim(),
-          username: regUsername.value.trim(),
-          password: regPassword.value
+          memberId:
+            regMemberId.value.trim(),
+
+          personalEmail:
+            regPersonalEmail.value.trim(),
+
+          username:
+            regUsername.value.trim(),
+
+          password:
+            regPassword.value,
+
+          otpRequestId:
+            REGISTRATION_OTP_REQUEST_ID,
+
+          otpCode:
+            regOtpCode.value.trim()
         },
         ''
       );
@@ -393,16 +687,246 @@ async function submitRegistration() {
 
     closeModal();
 
-    const extra = result.zoneId
-      ? `\nDetected Zone: ${result.zoneId} ${result.zoneName || ''}`
-      : result.clubName
-        ? `\nClub: ${result.clubName} | ${result.position || ''}`
-        : '';
+    const extra =
+      result.zoneId
+        ? '\nDetected Zone: ' +
+          result.zoneId
+        : result.clubName
+          ? '\nClub: ' +
+            result.clubName +
+            ' | ' +
+            (
+              result.position ||
+              ''
+            )
+          : '';
 
-    alert(result.message + extra);
+    alert(
+      result.message +
+      extra
+    );
 
   } catch (error) {
-    alert(error.message);
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
+/* =========================================================
+   FORGOT PASSWORD - EMAIL OTP REQUIRED
+========================================================= */
+
+let PASSWORD_RESET_OTP_REQUEST_ID =
+  '';
+
+function openForgotPassword() {
+  PASSWORD_RESET_OTP_REQUEST_ID =
+    '';
+
+  showModal(`
+    <div class="row">
+      <h2>Forgot Password</h2>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <div class="notice">
+      Password reset गर्न official registered Personal Email मा
+      OTP verification अनिवार्य छ।
+    </div>
+
+    <div class="grid g2">
+      <div class="field">
+        <label>Username</label>
+
+        <input id="resetUsername">
+      </div>
+
+      <div class="field">
+        <label>Registered Personal Email</label>
+
+        <input
+          id="resetEmail"
+          type="email"
+        >
+      </div>
+    </div>
+
+    <button
+      id="resetSendOtpBtn"
+      class="btn btn-light"
+      onclick="sendPasswordResetOtp()"
+    >
+      Send Reset OTP
+    </button>
+
+    <div
+      id="resetOtpArea"
+      class="hide"
+      style="margin-top:14px"
+    >
+      <div
+        id="resetOtpMessage"
+        class="notice ok"
+      ></div>
+
+      <div class="grid g2">
+        <div class="field">
+          <label>6-digit Email OTP</label>
+
+          <input
+            id="resetOtpCode"
+            inputmode="numeric"
+            maxlength="6"
+          >
+        </div>
+
+        <div class="field">
+          <label>New Password</label>
+
+          <input
+            id="resetNewPassword"
+            type="password"
+          >
+        </div>
+
+        <div class="field">
+          <label>Confirm New Password</label>
+
+          <input
+            id="resetConfirmPassword"
+            type="password"
+          >
+        </div>
+      </div>
+
+      <button
+        class="btn btn-primary"
+        onclick="completePasswordReset()"
+      >
+        Verify OTP & Reset Password
+      </button>
+    </div>
+  `);
+
+}
+
+async function sendPasswordResetOtp() {
+  try {
+    showLoading(
+      'Sending reset OTP...'
+    );
+
+    const result = await api(
+      'sendPasswordResetOtp',
+      {
+        username:
+          resetUsername.value.trim(),
+
+        personalEmail:
+          resetEmail.value.trim()
+      },
+      ''
+    );
+
+    PASSWORD_RESET_OTP_REQUEST_ID =
+      result.requestId;
+
+    resetOtpArea.classList.remove(
+      'hide'
+    );
+
+    resetSendOtpBtn.textContent =
+      'Resend Reset OTP';
+
+    resetOtpMessage.textContent =
+      'OTP sent to ' +
+      result.maskedEmail +
+      '.';
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
+async function completePasswordReset() {
+  if (
+    resetNewPassword.value !==
+    resetConfirmPassword.value
+  ) {
+    alert(
+      'New Password and Confirm Password do not match.'
+    );
+
+    return;
+
+  }
+
+  if (
+    !PASSWORD_RESET_OTP_REQUEST_ID
+  ) {
+    alert(
+      'Send reset OTP first.'
+    );
+
+    return;
+
+  }
+
+  try {
+    showLoading(
+      'Verifying OTP and resetting password...'
+    );
+
+    const result = await api(
+      'resetPasswordWithOtp',
+      {
+        username:
+          resetUsername.value.trim(),
+
+        personalEmail:
+          resetEmail.value.trim(),
+
+        otpRequestId:
+          PASSWORD_RESET_OTP_REQUEST_ID,
+
+        otpCode:
+          resetOtpCode.value.trim(),
+
+        newPassword:
+          resetNewPassword.value
+      },
+      ''
+    );
+
+    closeModal();
+
+    alert(
+      result.message
+    );
+
+  } catch (error) {
+    alert(
+      error.message
+    );
 
   } finally {
     hideLoading();
@@ -412,41 +936,62 @@ async function submitRegistration() {
 
 async function login(){
   try{showLoading('Logging in...');
+
 const d=await api('login',{username:username.value.trim(),password:password.value},'');
+
 TOKEN=d.token;
+
 USER=d.user;
+
 localStorage.setItem('ZR_TOKEN',TOKEN);
+
 enterApp()}
   catch(e){notice('loginMsg',e.message,'error')}finally{hideLoading()}
 }
 
 async function logout(){try{if(TOKEN)await api('logout')}catch(e){}localStorage.removeItem('ZR_TOKEN');
+
 clearInterval(AUTO_SAVE_TIMER);
+
 location.reload()}
 
 async function restore(){if(!TOKEN)return;
+
 try{const d=await api('me');
+
 USER=d.user;
+
 enterApp()}catch(e){localStorage.removeItem('ZR_TOKEN')}}
 
 function enterApp(){
   loginView.classList.add('hide');
+
 appView.classList.remove('hide');
+
 logoutBtn.classList.remove('hide');
+
 userBadge.textContent=`${USER.displayName} • ${USER.role}`;
 
   clubApp.classList.add('hide');
+
 zoneApp.classList.add('hide');
+
 adminApp.classList.add('hide');
 
   if(USER.role==='CLUB'){clubApp.classList.remove('hide');
+
 renderClubShell();
+
 loadClubDashboard()}
   else if(USER.role==='ZONE'){zoneApp.classList.remove('hide');
+
 renderZoneShell();
+
 loadZoneDashboard()}
   else{adminApp.classList.remove('hide');
+
 renderAdminShell();
+
 loadAdminDashboard()}
 }
 
@@ -454,13 +999,18 @@ loadAdminDashboard()}
 function renderClubShell(){clubApp.innerHTML=`<div class="tabs"><button class="tab active" onclick="clubTab('dashboard',this)">Dashboard</button><button class="tab" onclick="clubTab('report',this)">Report</button><button class="tab" onclick="clubTab('profile',this)">Club Profile</button></div><div id="clubDashboardTab"></div><div id="clubReportTab" class="hide"></div><div id="clubProfileTab" class="hide"></div>`}
 
 function clubTab(name,btn){document.querySelectorAll('#clubApp .tab').forEach(x=>x.classList.remove('active'));
+
 if(btn)btn.classList.add('active');
+
 ['Dashboard','Report','Profile'].forEach(x=>$('club'+x+'Tab').classList.add('hide'));
+
 $('club'+name[0].toUpperCase()+name.slice(1)+'Tab').classList.remove('hide')}
 
 async function loadClubDashboard(){
   try{showLoading('Loading dashboard...');
+
 const d=await api('clubDashboard');
+
 CLUB=d.club;
 
     clubDashboardTab.innerHTML=`<div class="grid g3"><div class="kpi"><span>Club</span><strong style="font-size:19px">${esc(CLUB?.ClubName||USER.clubId)}</strong><small>${esc(CLUB?.ZoneName||CLUB?.ZoneID||'')}</small></div><div class="kpi"><span>Report History</span><strong>${d.reports.length}</strong><small>Draft + Submitted</small></div><div class="kpi"><span>Current Month</span><strong style="font-size:22px">${currentMonth()}</strong></div></div>
@@ -471,39 +1021,67 @@ CLUB=d.club;
   }catch(e){clubDashboardTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}
 }
 
-function renderClubProfile(){clubProfileTab.innerHTML=`<div class="card"><h3>Club Profile</h3><div class="grid g2"><div><div class="field"><label>Club Logo</label><input type="file" id="clubLogoFile" accept="image/*"></div>${CLUB?.ClubLogoURL?`<img class="logo-preview" src="${esc(CLUB.ClubLogoURL)}">`:''}</div><div></div><div class="field"><label>Club Name</label><input id="pfClubName" value="${esc(CLUB?.ClubName||'')}"></div><div class="field"><label>Charter Date</label><input id="pfCharterDate" type="date" value="${dateOnly(CLUB?.CharterDate)}"></div><div class="field"><label>President</label><input id="pfPresident" value="${esc(CLUB?.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="pfSecretary" value="${esc(CLUB?.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="pfEmail" value="${esc(CLUB?.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="pfPhone" value="${esc(CLUB?.ClubPhone||'')}"></div><div class="field"><label>Zone</label><input value="${esc(CLUB?.ZoneID||'')} — ${esc(CLUB?.ZoneName||'')}" disabled></div></div><div class="actions"><button class="btn btn-primary" onclick="saveClubProfile()">Save Profile</button><button class="btn btn-light" onclick="uploadClubLogo()">Upload Logo</button></div></div>`}
+function renderClubProfile(){clubProfileTab.innerHTML=`<div class="card">
+<h3>Club Profile</h3>
+<div class="notice ok">
+President र Secretary दुवैले यही एउटै shared Club Profile edit गर्छन्।
+Logo/Profile update भएपछि दुवै login मा latest data देखिन्छ।
+</div><div class="grid g2"><div><div class="field"><label>Club Logo</label><input type="file" id="clubLogoFile" accept="image/*"></div>${CLUB?.ClubLogoURL?`<img class="logo-preview" src="${esc(CLUB.ClubLogoURL)}">`:''}</div><div></div><div class="field"><label>Club Name</label><input id="pfClubName" value="${esc(CLUB?.ClubName||'')}"></div><div class="field"><label>Charter Date</label><input id="pfCharterDate" type="date" value="${dateOnly(CLUB?.CharterDate)}"></div><div class="field"><label>President</label><input id="pfPresident" value="${esc(CLUB?.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="pfSecretary" value="${esc(CLUB?.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="pfEmail" value="${esc(CLUB?.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="pfPhone" value="${esc(CLUB?.ClubPhone||'')}"></div><div class="field"><label>Zone</label><input value="${esc(CLUB?.ZoneID||'')} — ${esc(CLUB?.ZoneName||'')}" disabled></div></div><div class="actions"><button class="btn btn-primary" onclick="saveClubProfile()">Save Profile</button><button class="btn btn-light" onclick="uploadClubLogo()">Upload Logo</button></div></div>`}
 
 async function saveClubProfile(){try{showLoading('Saving profile...');
+
 await api('saveClubProfile',{ClubName:pfClubName.value,CharterDate:pfCharterDate.value,PresidentName:pfPresident.value,SecretaryName:pfSecretary.value,ClubEmail:pfEmail.value,ClubPhone:pfPhone.value});
+
 await loadClubDashboard();
+
 alert('Profile saved')}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function uploadClubLogo(){const f=clubLogoFile.files[0];
+
 if(!f)return alert('Select logo first');
+
 try{showLoading('Uploading logo...');
+
 await api('saveClubLogo',{dataUrl:await fileData(f)});
+
 await loadClubDashboard();
+
 alert('Logo saved')}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function startReport(){const m=prompt('Reporting Month (YYYY-MM)',currentMonth());
+
 if(!m)return;
+
 try{showLoading('Opening report...');
+
 const d=await api('getOrCreateDraft',{reportingMonth:m});
+
 loadReportIntoForm(d.report);
+
 clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function openReport(id){try{showLoading('Loading report...');
+
 const d=await api('getReport',{reportId:id});
+
 loadReportIntoForm(d.report);
+
 clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
 
 function loadReportIntoForm(r){CURRENT_REPORT=r;
+
 SERVICES=(r.services||[]).map(x=>({...x,photos:[]}));
+
 CONTRIBUTIONS=r.contributions||[];
+
 PROGRAMS=r.programs||[];
+
 BLOOD=r.blood||[];
+
 FUTURE=r.futurePlans||[];
+
 renderReportForm();
+
 startAutoSave()}
 
 function renderReportForm(){
@@ -523,10 +1101,15 @@ function renderReportForm(){
   ['rmOpening','rmAdded','rmDropped','rmMale','rmFemale'].forEach(id=>$(id)?.addEventListener('input',membershipCalc));
 
   renderServices(locked);
+
 renderContrib(locked);
+
 renderPrograms(locked);
+
 renderBlood(locked);
+
 renderFuture(locked);
+
 membershipCalc();
 
 }
@@ -538,15 +1121,21 @@ function ftext(l,id,v,t='text',d=false){return `<div class="field"><label>${l}</
 function fselect(l,id,v,a,d){return `<div class="field"><label>${l}</label><select id="${id}" ${d?'disabled':''}>${a.map(x=>`<option ${String(x)===String(v)?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`}
 
 function membershipCalc(){if(!$('rmOpening'))return;
+
 const total=num(rmOpening.value)+num(rmAdded.value)-num(rmDropped.value),mf=num(rmMale.value)+num(rmFemale.value);
+
 rmTotal.value=total;
+
 memberCheck.className='notice '+(mf===total?'ok':'error');
+
 memberCheck.textContent=`Total = ${total} | Male + Female = ${mf} ${mf===total?'✓':'— Final Submit अघि मिलाउनुहोस्'}`}
 
 function addService(){SERVICES.push({Title:'',ServiceDate:'',Category:'',Description:'',Beneficiaries:0,Units:0,ServiceHours:0,Amount:0,Photo1URL:'',Photo2URL:'',photos:[]});
+
 renderServices(false)}
 
 function removeService(i){SERVICES.splice(i,1);
+
 renderServices(false)}
 
 function renderServices(lock){servicesWrap.innerHTML=SERVICES.length?SERVICES.map((s,i)=>`<div class="service-card"><div class="service-head"><strong>Service #${i+1}</strong><div class="spacer"></div>${!lock?`<button class="btn btn-danger" onclick="removeService(${i})">Delete</button>`:''}</div><div class="grid g4">${sv(i,'Title','Service Title',s.Title,lock)}${sv(i,'ServiceDate','Date',dateOnly(s.ServiceDate),lock,'date')}${sv(i,'Category','Category',s.Category,lock)}${sv(i,'Beneficiaries','Beneficiaries',s.Beneficiaries,lock,'number')}${sv(i,'Units','Units',s.Units,lock,'number')}${sv(i,'ServiceHours','Service Hours',s.ServiceHours,lock,'number')}${sv(i,'Amount','Amount',s.Amount,lock,'number')}</div><div class="field"><label>Description</label><textarea ${lock?'disabled':''} maxlength="1000" oninput="SERVICES[${i}].Description=this.value">${esc(s.Description||'')}</textarea></div><div class="photo-row"><div><div class="field"><label>Photo 1</label>${lock?'':`<input type="file" accept="image/*" onchange="setServicePhoto(${i},0,this)">`}</div><div class="photo-preview">${s.Photo1URL?`<img src="${esc(s.Photo1URL)}">`:'Photo 1'}</div></div><div><div class="field"><label>Photo 2 (Optional)</label>${lock?'':`<input type="file" accept="image/*" onchange="setServicePhoto(${i},1,this)">`}</div><div class="photo-preview">${s.Photo2URL?`<img src="${esc(s.Photo2URL)}">`:'Photo 2'}</div></div></div></div>`).join(''):`<div class="muted">No service added yet.</div>`}
@@ -554,75 +1143,290 @@ function renderServices(lock){servicesWrap.innerHTML=SERVICES.length?SERVICES.ma
 function sv(i,k,l,v,d,t='text'){return `<div class="field"><label>${l}</label><input type="${t}" value="${esc(v??'')}" ${d?'disabled':''} oninput="SERVICES[${i}].${k}=this.value"></div>`}
 
 async function setServicePhoto(i,slot,input){const f=input.files[0];
+
 if(!f)return;
+
 const d=await fileData(f);
+
 SERVICES[i].photos=SERVICES[i].photos||[];
+
 SERVICES[i].photos[slot]=d;
+
 if(slot===0)SERVICES[i].Photo1URL=d;
+
 else SERVICES[i].Photo2URL=d;
+
 renderServices(false)}
 
 function addContribution(){CONTRIBUTIONS.push({Type:'',ContributionDate:'',Amount:0,Currency:'NPR',Remarks:''});
+
 renderContrib(false)}
 
 function renderContrib(lock){contribWrap.innerHTML=CONTRIBUTIONS.length?CONTRIBUTIONS.map((x,i)=>`<div class="service-card grid g4">${mini('CONTRIBUTIONS',i,'Type','Contribution Type',x.Type,lock)}${mini('CONTRIBUTIONS',i,'ContributionDate','Date',dateOnly(x.ContributionDate),lock,'date')}${mini('CONTRIBUTIONS',i,'Amount','Amount',x.Amount,lock,'number')}${mini('CONTRIBUTIONS',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="CONTRIBUTIONS.splice(${i},1);renderContrib(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No contribution added.</div>`}
 
 function addProgram(){PROGRAMS.push({Level:'Club Level',Title:'',ProgramDate:'',Remarks:''});
+
 renderPrograms(false)}
 
 function renderPrograms(lock){programWrap.innerHTML=PROGRAMS.length?PROGRAMS.map((x,i)=>`<div class="service-card grid g4">${mini('PROGRAMS',i,'Level','Level',x.Level,lock)}${mini('PROGRAMS',i,'Title','Program Title',x.Title,lock)}${mini('PROGRAMS',i,'ProgramDate','Date',dateOnly(x.ProgramDate),lock,'date')}${mini('PROGRAMS',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="PROGRAMS.splice(${i},1);renderPrograms(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No participated program added.</div>`}
 
 function addBlood(){BLOOD.push({DonorName:'',BloodGroup:'',Units:1,Contact:'',Remarks:''});
+
 renderBlood(false)}
 
 function renderBlood(lock){bloodWrap.innerHTML=BLOOD.length?BLOOD.map((x,i)=>`<div class="service-card grid g4">${mini('BLOOD',i,'DonorName','Donor / Record Name',x.DonorName,lock)}${mini('BLOOD',i,'BloodGroup','Blood Group',x.BloodGroup,lock)}${mini('BLOOD',i,'Units','Units',x.Units,lock,'number')}${mini('BLOOD',i,'Contact','Contact',x.Contact,lock)}${mini('BLOOD',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="BLOOD.splice(${i},1);renderBlood(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No blood information added.</div>`}
 
 function addFuture(){FUTURE.push({Title:'',TentativeDate:'',Remarks:''});
+
 renderFuture(false)}
 
 function renderFuture(lock){futureWrap.innerHTML=FUTURE.length?FUTURE.map((x,i)=>`<div class="service-card grid g3">${mini('FUTURE',i,'Title','Future Plan',x.Title,lock)}${mini('FUTURE',i,'TentativeDate','Tentative Date',dateOnly(x.TentativeDate),lock,'date')}${mini('FUTURE',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="FUTURE.splice(${i},1);renderFuture(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No future plan added.</div>`}
 
 function mini(arr,i,k,l,v,d,t='text'){return `<div class="field"><label>${l}</label><input type="${t}" value="${esc(v??'')}" ${d?'disabled':''} oninput="${arr}[${i}].${k}=this.value"></div>`}
 
-function collectPayload(){return{reportId:CURRENT_REPORT.master.ReportID,master:{periodStart:rmStart.value,periodEnd:rmEnd.value,openingMembers:rmOpening.value,addedMembers:rmAdded.value,droppedMembers:rmDropped.value,maleMembers:rmMale.value,femaleMembers:rmFemale.value,internationalDues:rmInternational.value,districtDues:rmDistrict.value,portalReporting:rmPortal.value,zoneMeeting:rmZoneMeeting.value,districtProgram:rmDistrictProgram.value,notes:rmNotes.value},services:SERVICES,contributions:CONTRIBUTIONS,programs:PROGRAMS,blood:BLOOD,futurePlans:FUTURE}}
+function collectPayload() {
+  return {
+    reportId:
+      CURRENT_REPORT.master.ReportID,
 
-async function saveDraft(silent=false){if(!CURRENT_REPORT||CURRENT_REPORT.master.Status==='SUBMITTED')return;
-try{if(!silent)showLoading('Saving draft...');
-const d=await api('saveDraft',collectPayload());
-CURRENT_REPORT=d.report;
-if(!silent){loadReportIntoForm(d.report);
-alert('Draft saved')}}catch(e){if(!silent)alert(e.message)}finally{if(!silent)hideLoading()}}
+    expectedRevision:
+      CURRENT_REPORT.master.Revision ||
+      1,
+
+    master: {
+      periodStart:
+        rmStart.value,
+
+      periodEnd:
+        rmEnd.value,
+
+      openingMembers:
+        rmOpening.value,
+
+      addedMembers:
+        rmAdded.value,
+
+      droppedMembers:
+        rmDropped.value,
+
+      maleMembers:
+        rmMale.value,
+
+      femaleMembers:
+        rmFemale.value,
+
+      internationalDues:
+        rmInternational.value,
+
+      districtDues:
+        rmDistrict.value,
+
+      portalReporting:
+        rmPortal.value,
+
+      zoneMeeting:
+        rmZoneMeeting.value,
+
+      districtProgram:
+        rmDistrictProgram.value,
+
+      notes:
+        rmNotes.value
+    },
+
+    services:
+      SERVICES,
+
+    contributions:
+      CONTRIBUTIONS,
+
+    programs:
+      PROGRAMS,
+
+    blood:
+      BLOOD,
+
+    futurePlans:
+      FUTURE
+  };
+
+}
+
+async function saveDraft(
+  silent = false
+) {
+  if (
+    !CURRENT_REPORT ||
+    CURRENT_REPORT.master.Status ===
+      'SUBMITTED'
+  ) {
+    return;
+
+  }
+
+  try {
+    if (!silent) {
+      showLoading(
+        'Saving shared Club draft...'
+      );
+
+    }
+
+    const data = await api(
+      'saveDraft',
+      collectPayload()
+    );
+
+    CURRENT_REPORT =
+      data.report;
+
+    if (!silent) {
+      loadReportIntoForm(
+        data.report
+      );
+
+      alert(
+        'Draft saved. President and Secretary will see the same latest data.'
+      );
+
+    }
+
+  } catch (error) {
+    const message = String(
+      error.message ||
+      ''
+    );
+
+    if (
+      message.startsWith(
+        'CONFLICT:'
+      )
+    ) {
+      clearInterval(
+        AUTO_SAVE_TIMER
+      );
+
+      if (!silent) {
+        const reload = confirm(
+          message +
+          '\n\nReload latest shared data now?'
+        );
+
+        if (reload) {
+          await reloadLatestSharedReport();
+
+        }
+
+      } else {
+        alert(
+          'Another President/Secretary login saved a newer report revision. Auto-save stopped. Reload the latest report before continuing.'
+        );
+
+      }
+
+      return;
+
+    }
+
+    if (!silent) {
+      alert(
+        error.message
+      );
+
+    }
+
+  } finally {
+    if (!silent) {
+      hideLoading();
+
+    }
+  }
+}
+
+async function reloadLatestSharedReport() {
+  if (!CURRENT_REPORT) {
+    return;
+
+  }
+
+  try {
+    showLoading(
+      'Loading latest shared report...'
+    );
+
+    const data = await api(
+      'getReport',
+      {
+        reportId:
+          CURRENT_REPORT.master.ReportID
+      }
+    );
+
+    loadReportIntoForm(
+      data.report
+    );
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
 
 function startAutoSave(){clearInterval(AUTO_SAVE_TIMER);
+
 if(CURRENT_REPORT&&CURRENT_REPORT.master.Status!=='SUBMITTED')AUTO_SAVE_TIMER=setInterval(()=>saveDraft(true),60000)}
 
 async function finalSubmit(){membershipCalc();
+
 if(num(rmMale.value)+num(rmFemale.value)!==num(rmTotal.value))return alert('Male + Female must equal Total Members.');
+
 if(!confirm('Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?'))return;
+
 try{showLoading('Submitting to Zone...');
+
 const d=await api('submitFinal',collectPayload());
+
 CURRENT_REPORT=d.report;
+
 loadReportIntoForm(d.report);
+
 await loadClubDashboard();
+
 alert('Final report submitted to Zone Chairperson.')}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function askCorrection(reportId){const reason=prompt('Correction reason');
+
 if(!reason)return;
+
 try{await api('requestCorrection',{reportId,reason});
+
 alert('Correction request sent to Zone Chairperson.')}catch(e){alert(e.message)}}
 
 async function printReportById(id){try{showLoading('Preparing PDF...');
+
 const d=await api('getReport',{reportId:id});
+
 buildPrint(d.report);
+
 window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
 
 function previewPrint(){buildPrint(CURRENT_REPORT);
+
 window.print()}
 
 function buildPrint(report){
   const r=report.master,c=report.club||{},services=report.services||SERVICES,contrib=report.contributions||CONTRIBUTIONS,programs=report.programs||PROGRAMS,blood=report.blood||BLOOD,future=report.futurePlans||FUTURE;
 
-  printArea.innerHTML=`<section class="p-cover">${c.ClubLogoURL?`<img class="p-logo" src="${esc(c.ClubLogoURL)}">`:''}<h1>${esc(r.ClubNameSnapshot||c.ClubName||'Lions Club')}</h1><h2>CLUB MONTHLY / PERIODIC REPORT</h2><p>${esc(r.PeriodStart)} to ${esc(r.PeriodEnd)}</p><p><b>Zone:</b> ${esc(r.ZoneID)} &nbsp; | &nbsp; <b>Zone Chairperson:</b> ${esc(r.ZoneChairpersonSnapshot||'')}</p><div style="margin-top:24mm"><b>President:</b> ${esc(r.PresidentSnapshot||'')}<br><b>Secretary:</b> ${esc(r.SecretarySnapshot||'')}</div></section>
+  printArea.innerHTML=`<section class="p-cover"><img
+    class="p-logo"
+    src="${esc(c.ClubLogoURL || r.ClubLogoURLSnapshot || 'logo.png')}"
+    alt="Club Logo"
+  ><h1>${esc(r.ClubNameSnapshot||c.ClubName||'Lions Club')}</h1><h2>CLUB MONTHLY / PERIODIC REPORT</h2><p>${esc(r.PeriodStart)} to ${esc(r.PeriodEnd)}</p><p><b>Zone:</b> ${esc(r.ZoneID)} &nbsp; | &nbsp; <b>Zone Chairperson:</b> ${esc(r.ZoneChairpersonSnapshot||'')}</p><div style="margin-top:24mm"><b>President:</b> ${esc(r.PresidentSnapshot||'')}<br><b>Secretary:</b> ${esc(r.SecretarySnapshot||'')}</div></section>
   <section class="p-page"><h2 class="p-head">Club & Membership Details</h2><table class="p-table"><tr><th>Charter Date</th><th>Opening</th><th>Add</th><th>Drop</th><th>Total</th><th>Male</th><th>Female</th><th>Net</th></tr><tr><td>${esc(r.CharterDateSnapshot)}</td><td>${r.OpeningMembers}</td><td>${r.AddedMembers}</td><td>${r.DroppedMembers}</td><td>${r.TotalMembers}</td><td>${r.MaleMembers}</td><td>${r.FemaleMembers}</td><td>${r.NetGrowth}</td></tr></table>
   <h2 class="p-head" style="margin-top:8mm">Club Dues / Reporting / Participation</h2><table class="p-table"><tr><th>International Dues</th><th>District Dues</th><th>Portal Reporting</th><th>Zone Meeting</th><th>District Program</th></tr><tr><td>${esc(r.InternationalDues)}</td><td>${esc(r.DistrictDues)}</td><td>${esc(r.PortalReporting)}</td><td>${esc(r.ZoneMeeting)}</td><td>${esc(r.DistrictProgram)}</td></tr></table>
   ${contrib.length?`<h2 class="p-head" style="margin-top:8mm">Contributions</h2><table class="p-table"><tr><th>Type</th><th>Date</th><th>Amount</th><th>Remarks</th></tr>${contrib.map(x=>`<tr><td>${esc(x.Type)}</td><td>${esc(dateOnly(x.ContributionDate))}</td><td>${money(x.Amount)} ${esc(x.Currency||'NPR')}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:''}
@@ -638,34 +1442,51 @@ function buildPrint(report){
 function renderZoneShell(){zoneApp.innerHTML=`<div class="tabs"><button class="tab active" onclick="zoneTab('dash',this)">My Zone</button><button class="tab" onclick="zoneTab('correction',this)">Correction Requests</button></div><div id="zoneDashTab"></div><div id="zoneCorrectionTab" class="hide"></div>`}
 
 function zoneTab(name,btn){document.querySelectorAll('#zoneApp .tab').forEach(x=>x.classList.remove('active'));
+
 btn.classList.add('active');
+
 zoneDashTab.classList.add('hide');
+
 zoneCorrectionTab.classList.add('hide');
+
 if(name==='dash'){zoneDashTab.classList.remove('hide')}else{zoneCorrectionTab.classList.remove('hide');
+
 loadZoneCorrections()}}
 
 async function loadZoneDashboard(){zoneDashTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone Chairperson Dashboard</h2></div><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="zoneMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="zoneLoad()">Load</button></div><div id="zoneContent"></div></div>`;
+
 await zoneLoad()}
 
 async function zoneLoad(){try{showLoading('Loading Zone reports...');
+
 const d=await api('zoneDashboard',{reportingMonth:zoneMonth.value});
+
 zoneContent.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.summary.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.summary.submitted}</strong></div><div class="kpi"><span>Pending / Draft</span><strong>${d.summary.pending+d.summary.draft}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.summary.totalServices}</strong><small>Final only</small></div></div><div class="card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr><th>Club</th><th>Status</th><th>Members</th><th>Services</th><th>Contribution</th><th>Action</th></tr></thead><tbody>${d.clubs.map(c=>`<tr><td>${esc(c.clubName)}</td><td><span class="status st-${esc(c.status)}">${esc(c.status)}</span></td><td>${c.totalMembers}</td><td>${c.serviceCount}</td><td>${money(c.contributionTotal)}</td><td>${c.status==='SUBMITTED'?`<div class="actions"><button class="btn btn-light" onclick="zoneViewReport('${esc(c.reportId)}')">View / PDF</button><button class="btn btn-ok" onclick="markReviewed('${esc(c.reportId)}')">Mark Reviewed</button></div>`:'-'}</td></tr>`).join('')}</tbody></table></div></div>`}catch(e){zoneContent.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
 async function zoneViewReport(id){try{showLoading('Loading report...');
+
 const d=await api('zoneGetClubReport',{reportId:id});
+
 buildPrint(d.report);
+
 window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function markReviewed(id){try{await api('zoneSetReviewStatus',{reportId:id,status:'REVIEWED'});
+
 alert('Marked as reviewed');
+
 zoneLoad()}catch(e){alert(e.message)}}
 
 async function loadZoneCorrections(){try{showLoading('Loading correction requests...');
+
 const d=await api('zoneCorrectionRequests');
+
 zoneCorrectionTab.innerHTML=`<div class="card"><h2>Correction Requests</h2>${d.requests.length?`<div class="table-wrap"><table><tr><th>Club</th><th>Month</th><th>Reason</th><th>Requested</th><th>Action</th></tr>${d.requests.map(q=>`<tr><td>${esc(q.ClubName)}</td><td>${esc(q.ReportingMonth)}</td><td>${esc(q.Reason)}</td><td>${esc(q.CreatedAt)}</td><td><div class="actions"><button class="btn btn-ok" onclick="decideCorrection('${esc(q.RequestID)}','APPROVE')">Approve</button><button class="btn btn-danger" onclick="decideCorrection('${esc(q.RequestID)}','DENY')">Deny</button></div></td></tr>`).join('')}</table></div>`:`<div class="notice ok">No pending correction request.</div>`}</div>`}catch(e){zoneCorrectionTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
 async function decideCorrection(id,d){if(!confirm(d+' correction request?'))return;
+
 try{await api('zoneCorrectionDecision',{requestId:id,decision:d});
+
 loadZoneCorrections()}catch(e){alert(e.message)}}
 
 /* ADMIN */
@@ -691,6 +1512,13 @@ function renderAdminShell() {
       <button class="tab" onclick="adminTab('mapping', this)">
         Zone Mapping
       </button>
+
+      <button
+        class="tab"
+        onclick="adminTab('year', this)"
+      >
+        Year Settings
+      </button>
     </div>
 
     <div id="adminDashboardTab"></div>
@@ -698,6 +1526,7 @@ function renderAdminShell() {
     <div id="adminClubsTab" class="hide"></div>
     <div id="adminZonechairsTab" class="hide"></div>
     <div id="adminMappingTab" class="hide"></div>
+    <div id="adminYearTab" class="hide"></div>
   `;
 
 }
@@ -714,7 +1543,8 @@ function adminTab(name, button) {
     'Users',
     'Clubs',
     'Zonechairs',
-    'Mapping'
+    'Mapping',
+    'Year'
   ].forEach(section => {
     $('admin' + section + 'Tab').classList.add('hide');
 
@@ -746,51 +1576,184 @@ function adminTab(name, button) {
     loadAdminMappings();
 
   }
+
+  if (
+    name ===
+    'year'
+  ) {
+    loadAdminYearSettings();
+
+  }
 }
 
 async function loadAdminDashboard(){adminDashboardTab.innerHTML=`<div class="card"><h2>District Admin Dashboard</h2><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="adminMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="adminDashLoad()">Load</button></div><div id="adminStats"></div></div>`;
+
 await adminDashLoad()}
 
 async function adminDashLoad(){try{showLoading('Loading District data...');
+
 const d=await api('adminDashboard',{reportingMonth:adminMonth.value});
+
 adminStats.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.submitted}</strong></div><div class="kpi"><span>Pending</span><strong>${d.pending}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.totalServices}</strong></div></div>`}catch(e){adminStats.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
 async function loadAdminUsers(){try{showLoading('Loading users...');
+
 const d=await api('adminListUsers');
+
 adminUsersTab.innerHTML=`<div class="card"><div class="section-title"><h2>User Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openCreateUser()">+ Create User</button></div><div class="table-wrap"><table><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Club</th><th>Zone</th><th>Status</th><th>Action</th></tr>${d.users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${esc(u.role)}</td><td>${esc(u.clubId||'-')}</td><td>${esc(u.zoneId||'-')}</td><td>${u.active?'Active':'Inactive'}</td><td><div class="actions"><button class="btn ${u.active?'btn-danger':'btn-ok'}" onclick="setUserActive('${esc(u.userId)}',${!u.active})">${u.active?'Deactivate':'Activate'}</button><button class="btn btn-light" onclick="resetPassword('${esc(u.userId)}','${esc(u.username)}')">Reset Password</button></div></td></tr>`).join('')}</table></div></div>`}catch(e){adminUsersTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
 function openCreateUser(){showModal(`<div class="row"><h2>Create User</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Username</label><input id="cuUsername"></div><div class="field"><label>Password</label><input id="cuPassword" type="password"></div><div class="field"><label>Display Name</label><input id="cuDisplay"></div><div class="field"><label>Role</label><select id="cuRole" onchange="toggleUserRoleFields()"><option>CLUB</option><option>ZONE</option><option>ADMIN</option></select></div><div class="field" id="cuClubWrap"><label>Club ID</label><input id="cuClub"></div><div class="field" id="cuZoneWrap"><label>Zone ID</label><input id="cuZone"></div></div><button class="btn btn-primary" onclick="createUserNow()">Create User</button>`);
+
 toggleUserRoleFields()}
 
 function toggleUserRoleFields(){const role=cuRole.value;
+
 cuClubWrap.classList.toggle('hide',role!=='CLUB');
+
 cuZoneWrap.classList.toggle('hide',role==='ADMIN')}
 
 async function createUserNow(){try{showLoading('Creating user...');
+
 await api('adminCreateUser',{username:cuUsername.value,password:cuPassword.value,displayName:cuDisplay.value,role:cuRole.value,clubId:cuRole.value==='CLUB'?cuClub.value:'',zoneId:cuRole.value==='ADMIN'?'':cuZone.value});
+
 closeModal();
+
 await loadAdminUsers();
+
 alert('User created')}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function setUserActive(id,active){if(!confirm((active?'Activate':'Deactivate')+' this user?'))return;
+
 try{await api('adminSetUserActive',{userId:id,active});
+
 loadAdminUsers()}catch(e){alert(e.message)}}
 
 async function resetPassword(id,name){const p=prompt('New password for '+name+' (minimum 8 characters)');
+
 if(!p)return;
+
 try{await api('adminResetPassword',{userId:id,password:p});
+
 alert('Password reset')}catch(e){alert(e.message)}}
 
 async function loadAdminClubs(){try{showLoading('Loading clubs...');
+
 const d=await api('adminListClubs');
+
 adminClubsTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openClubForm()">+ Add Club</button></div><div class="table-wrap"><table><tr><th>Club ID</th><th>Club Name</th><th>Zone</th><th>President</th><th>Secretary</th><th>Status</th><th>Action</th></tr>${d.clubs.map(c=>`<tr><td>${esc(c.ClubID)}</td><td>${esc(c.ClubName)}</td><td>${esc(c.ZoneID)} ${esc(c.ZoneName||'')}</td><td>${esc(c.PresidentName||'')}</td><td>${esc(c.SecretaryName||'')}</td><td>${esc(c.Active)}</td><td><button class="btn btn-light" onclick='openClubForm(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminClubsTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
 function openClubForm(c={}){showModal(`<div class="row"><h2>${c.ClubID?'Edit':'Add'} Club</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club ID ${c.ClubID?'':'(blank = auto)'}</label><input id="acId" value="${esc(c.ClubID||'')}" ${c.ClubID?'disabled':''}></div><div class="field"><label>Club Name</label><input id="acName" value="${esc(c.ClubName||'')}"></div><div class="field"><label>Zone ID</label><input id="acZone" value="${esc(c.ZoneID||'')}"></div><div class="field"><label>Zone Name</label><input id="acZoneName" value="${esc(c.ZoneName||'')}"></div><div class="field"><label>Charter Date</label><input id="acCharter" type="date" value="${dateOnly(c.CharterDate)}"></div><div class="field"><label>President</label><input id="acPresident" value="${esc(c.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="acSecretary" value="${esc(c.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="acEmail" value="${esc(c.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="acPhone" value="${esc(c.ClubPhone||'')}"></div><div class="field"><label>Active</label><select id="acActive"><option value="TRUE" ${String(c.Active)!=='FALSE'?'selected':''}>TRUE</option><option value="FALSE" ${String(c.Active)==='FALSE'?'selected':''}>FALSE</option></select></div></div><button class="btn btn-primary" onclick="saveAdminClub()">Save Club</button>`)}
 
 async function saveAdminClub(){try{showLoading('Saving club...');
+
 await api('adminSaveClub',{ClubID:acId.value,ClubName:acName.value,ZoneID:acZone.value,ZoneName:acZoneName.value,CharterDate:acCharter.value,PresidentName:acPresident.value,SecretaryName:acSecretary.value,ClubEmail:acEmail.value,ClubPhone:acPhone.value,Active:acActive.value});
+
 closeModal();
+
 loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+/* =========================================================
+   ADMIN: YEAR SETTINGS
+========================================================= */
+
+async function loadAdminYearSettings() {
+  try {
+    showLoading(
+      'Loading Fiscal Year settings...'
+    );
+
+    const data = await api(
+      'adminGetYearSettings'
+    );
+
+    adminYearTab.innerHTML = `
+      <div class="card">
+        <h2>Yearly / Fiscal Year Control</h2>
+
+        <div class="notice">
+          पुरानो reports delete हुँदैन।
+          नयाँ Lions year सुरु हुँदा Current Fiscal Year change गर्नुहोस्।
+          पुरानो officer account historical रहन्छ तर current-year login बन्द हुन्छ।
+        </div>
+
+        <div
+          class="field"
+          style="max-width:320px"
+        >
+          <label>
+            Current Fiscal Year
+            (Example: 2026/27)
+          </label>
+
+          <input
+            id="yearFiscalInput"
+            value="${esc(data.currentFiscalYear || '')}"
+          >
+        </div>
+
+        <button
+          class="btn btn-primary"
+          onclick="saveAdminFiscalYear()"
+        >
+          Save Fiscal Year
+        </button>
+      </div>
+    `;
+
+  } catch (error) {
+    adminYearTab.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
+async function saveAdminFiscalYear() {
+  if (
+    !confirm(
+      'Current Fiscal Year change गर्ने? पुरानो reports सुरक्षित रहनेछन्।'
+    )
+  ) {
+    return;
+
+  }
+
+  try {
+    showLoading(
+      'Saving Fiscal Year...'
+    );
+
+    const data = await api(
+      'adminSetCurrentFiscalYear',
+      {
+        fiscalYear:
+          yearFiscalInput.value.trim()
+      }
+    );
+
+    alert(
+      'Current Fiscal Year updated to ' +
+      data.currentFiscalYear +
+      '.'
+    );
+
+    await loadAdminYearSettings();
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
 
 /* =========================================================
    ADMIN: ZONE CHAIRPERSON MASTER
@@ -1227,23 +2190,33 @@ async function importZoneChairExcel() {
 }
 
 async function loadAdminMappings(){try{showLoading('Loading mappings...');
+
 const [m,u,c]=await Promise.all([api('adminListMappings'),api('adminListUsers'),api('adminListClubs')]);
+
 const zoneUsers=u.users.filter(x=>x.role==='ZONE'&&x.active);
+
 adminMappingTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone → Club Mapping</h2><div class="spacer"></div><button class="btn btn-gold" onclick='openMappingForm(${JSON.stringify(c.clubs)},${JSON.stringify(zoneUsers)})'>+ Add Mapping</button></div><div class="notice">एक Zone Chairperson को under मा सामान्यतया 4–8 clubs mapping गर्न सकिन्छ। Zone Chairperson login भएपछि यही mapping अनुसार clubs मात्र देखिन्छन्।</div><div class="table-wrap"><table><tr><th>Zone</th><th>Club</th><th>Chairperson User ID</th><th>Status</th><th>Action</th></tr>${m.mappings.map(x=>`<tr><td>${esc(x.ZoneID)} ${esc(x.ZoneName||'')}</td><td>${esc(x.ClubName)} (${esc(x.ClubID)})</td><td>${esc(x.ChairpersonUserID||'-')}</td><td>${esc(x.Active)}</td><td><button class="btn ${String(x.Active)==='TRUE'?'btn-danger':'btn-ok'}" onclick="setMappingActive('${esc(x.MapID)}',${String(x.Active)!=='TRUE'})">${String(x.Active)==='TRUE'?'Deactivate':'Activate'}</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminMappingTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
 function openMappingForm(clubs,zoneUsers){showModal(`<div class="row"><h2>Add Zone Mapping</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club</label><select id="amClub" onchange="fillZoneFromClub()">${clubs.map(c=>`<option value="${esc(c.ClubID)}" data-zone="${esc(c.ZoneID)}" data-zname="${esc(c.ZoneName||'')}">${esc(c.ClubName)} (${esc(c.ClubID)})</option>`).join('')}</select></div><div class="field"><label>Zone Chairperson</label><select id="amChair"><option value="">-- Select --</option>${zoneUsers.map(u=>`<option value="${esc(u.userId)}" data-zone="${esc(u.zoneId)}">${esc(u.displayName)} — ${esc(u.zoneId)}</option>`).join('')}</select></div><div class="field"><label>Zone ID</label><input id="amZone"></div><div class="field"><label>Zone Name</label><input id="amZoneName"></div></div><button class="btn btn-primary" onclick="saveMapping()">Save Mapping</button>`);
+
 fillZoneFromClub()}
 
 function fillZoneFromClub(){const o=amClub.options[amClub.selectedIndex];
+
 amZone.value=o?.dataset.zone||'';
+
 amZoneName.value=o?.dataset.zname||''}
 
 async function saveMapping(){try{showLoading('Saving mapping...');
+
 await api('adminSaveMapping',{ClubID:amClub.value,ZoneID:amZone.value,ZoneName:amZoneName.value,ChairpersonUserID:amChair.value,Active:true});
+
 closeModal();
+
 loadAdminMappings()}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function setMappingActive(id,active){try{await api('adminSetMappingActive',{mapId:id,active});
+
 loadAdminMappings()}catch(e){alert(e.message)}}
 
 restore();
