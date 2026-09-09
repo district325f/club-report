@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.7.1
+  FINAL BASE v1.7.2
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -306,6 +306,37 @@ img {
 
   h3 {
     font-size: 17px;
+  }
+}
+
+
+/* =========================================================
+   v1.7.2 MOBILE ADMIN NAVIGATION HARDENING
+========================================================= */
+
+@media (max-width: 820px) {
+  #adminApp .tabs,
+  #clubApp .tabs,
+  #zoneApp .tabs {
+    display: flex;
+    gap: 6px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  #adminApp .tab,
+  #clubApp .tab,
+  #zoneApp .tab {
+    min-height: 42px;
+    white-space: nowrap;
+  }
+
+  .system-dialog-box {
+    width: calc(100vw - 24px);
+    max-width: 520px;
+    max-height: 88vh;
+    overflow-y: auto;
   }
 }
 
@@ -753,12 +784,16 @@ async function apiNetwork(
   const controller =
     new AbortController();
 
+  /*
+   * 45 seconds is only a safety ceiling.
+   * Normal optimized requests should finish much earlier.
+   */
   const timeout =
     setTimeout(
       () => {
         controller.abort();
       },
-      20000
+      45000
     );
 
   try {
@@ -797,10 +832,14 @@ async function apiNetwork(
       await response.text();
 
     if (!response.ok) {
+      console.error(
+        'Backend HTTP error',
+        response.status,
+        action
+      );
+
       throw new Error(
-        'Backend HTTP error ' +
-        response.status +
-        '.'
+        'TECHNICAL_CONNECTION_ERROR'
       );
     }
 
@@ -810,17 +849,18 @@ async function apiNetwork(
         ''
       ).trim();
 
-    /*
-     * Apps Script deployment/login page or wrong Web App URL
-     * often returns HTML beginning with <!DOCTYPE...
-     */
     if (
       trimmed.startsWith(
         '<'
       )
     ) {
+      console.error(
+        'Backend returned HTML instead of JSON.',
+        action
+      );
+
       throw new Error(
-        'Backend returned an HTML page instead of JSON. Please check Apps Script Web App deployment, access setting (Anyone), and config.js API_URL.'
+        'TECHNICAL_CONNECTION_ERROR'
       );
     }
 
@@ -833,15 +873,21 @@ async function apiNetwork(
         );
 
     } catch (parseError) {
+      console.error(
+        'Invalid backend JSON.',
+        action,
+        parseError
+      );
+
       throw new Error(
-        'Backend response is not valid JSON. Please redeploy the latest Code.gs version.'
+        'TECHNICAL_CONNECTION_ERROR'
       );
     }
 
     if (
       result &&
       result.ok ===
-      false
+        false
     ) {
       throw new Error(
         result.error ||
@@ -854,10 +900,15 @@ async function apiNetwork(
   } catch (error) {
     if (
       error.name ===
-      'AbortError'
+        'AbortError'
     ) {
+      console.error(
+        'Backend timeout:',
+        action
+      );
+
       throw new Error(
-        'Server response timed out after 20 seconds. Please retry. If this continues, check Apps Script deployment and backend execution log.'
+        'SERVER_SLOW'
       );
     }
 
@@ -870,8 +921,53 @@ async function apiNetwork(
   }
 }
 
+
+function userFriendlyError(
+  error
+) {
+  const message =
+    String(
+      error &&
+      error.message
+        ? error.message
+        : error ||
+          ''
+    ).trim();
+
+  if (
+    message ===
+      'SERVER_SLOW'
+  ) {
+    return 'डाटा लोड हुन केही समय लागिरहेको छ । कृपया फेरि प्रयास गर्नुहोस् ।';
+  }
+
+  if (
+    message ===
+      'TECHNICAL_CONNECTION_ERROR'
+  ) {
+    return 'सर्भरसँग सम्पर्क हुन सकेन । कृपया केही क्षणपछि पुनः प्रयास गर्नुहोस् ।';
+  }
+
+  if (
+    /timed out|backend http|html page|valid json|deployment|execution log/i.test(
+      message
+    )
+  ) {
+    return 'सर्भरसँग सम्पर्क हुन सकेन । कृपया केही क्षणपछि पुनः प्रयास गर्नुहोस् ।';
+  }
+
+  return (
+    message ||
+    'अनुरोध पूरा हुन सकेन । कृपया पुनः प्रयास गर्नुहोस् ।'
+  );
+}
+
 const API_READ_CACHE =
   new Map();
+
+const API_INFLIGHT =
+  new Map();
+
 
 const API_READ_CACHE_TTL =
   60000;
@@ -949,27 +1045,54 @@ async function api(
     }
   }
 
-  const result =
-    await apiNetwork(
-      action,
-      payload
+  /*
+   * Same button / same panel requested twice while the first request
+   * is still running -> share one network request.
+   */
+  if (
+    API_INFLIGHT.has(
+      key
+    )
+  ) {
+    return API_INFLIGHT.get(
+      key
     );
-
-  if (cacheable) {
-    API_READ_CACHE.set(
-      key,
-      {
-        time:
-          Date.now(),
-        data:
-          result
-      }
-    );
-  } else {
-    clearApiReadCache();
   }
 
-  return result;
+  const request =
+    apiNetwork(
+      action,
+      payload
+    )
+      .then(result => {
+        if (cacheable) {
+          API_READ_CACHE.set(
+            key,
+            {
+              time:
+                Date.now(),
+              data:
+                result
+            }
+          );
+        } else {
+          clearApiReadCache();
+        }
+
+        return result;
+      })
+      .finally(() => {
+        API_INFLIGHT.delete(
+          key
+        );
+      });
+
+  API_INFLIGHT.set(
+    key,
+    request
+  );
+
+  return request;
 }
 
 
@@ -1922,19 +2045,56 @@ async function checkSharedReportRevision() {
 }
 
 
-async function login(){
-  try{showLoading('Logging in...');
+async function login() {
+  try {
+    loginMsg.innerHTML =
+      '';
 
-const d=await api('login',{username:username.value.trim(),password:password.value},'');
+    showLoading(
+      'Logging in...'
+    );
 
-TOKEN=d.token;
+    const data =
+      await api(
+        'login',
+        {
+          username:
+            username.value.trim(),
+          password:
+            password.value
+        }
+      );
 
-USER=d.user;
+    TOKEN =
+      data.token;
 
-localStorage.setItem('ZR_TOKEN',TOKEN);
+    USER =
+      data.user;
 
-enterApp()}
-  catch(e){notice('loginMsg',e.message,'error')}finally{hideLoading()}
+    localStorage.setItem(
+      'ZR_TOKEN',
+      TOKEN
+    );
+
+    enterApp();
+
+  } catch (error) {
+    const message =
+      userFriendlyError(
+        error
+      );
+
+    loginMsg.innerHTML =
+      '';
+
+    await appAlert(
+      message,
+      'Login'
+    );
+
+  } finally {
+    hideLoading();
+  }
 }
 
 async function logout(){try{if(TOKEN)await api('logout')}catch(e){}localStorage.removeItem('ZR_TOKEN');
@@ -2680,7 +2840,7 @@ await api('saveClubProfile',{ClubName:pfClubName.value,CharterDate:pfCharterDate
 
 await loadClubDashboard();
 
-alert('Profile saved')}catch(e){alert(e.message)}finally{hideLoading()}}
+alert('Profile saved')}catch(e){appAlert(userFriendlyError(e))}finally{hideLoading()}}
 
 async function uploadClubLogo(){const f=clubLogoFile.files[0];
 
@@ -2692,7 +2852,7 @@ await api('saveClubLogo',{dataUrl:await fileData(f)});
 
 await loadClubDashboard();
 
-alert('Logo saved')}catch(e){alert(e.message)}finally{hideLoading()}}
+alert('Logo saved')}catch(e){appAlert(userFriendlyError(e))}finally{hideLoading()}}
 
 async function removeClubLogo() {
   if (
@@ -2739,7 +2899,7 @@ const d=await api('getOrCreateDraft',{reportingMonth:m});
 
 loadReportIntoForm(d.report);
 
-clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
+clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){appAlert(userFriendlyError(e))}finally{hideLoading()}}
 
 async function openReport(id){try{showLoading('Loading report...');
 
@@ -2747,7 +2907,7 @@ const d=await api('getReport',{reportId:id});
 
 loadReportIntoForm(d.report);
 
-clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
+clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){appAlert(userFriendlyError(e))}finally{hideLoading()}}
 
 function loadReportIntoForm(r){CURRENT_REPORT=r;
 
@@ -6363,13 +6523,13 @@ closeModal();
 
 await loadAdminUsers();
 
-alert('User created')}catch(e){alert(e.message)}finally{hideLoading()}}
+alert('User created')}catch(e){appAlert(userFriendlyError(e))}finally{hideLoading()}}
 
 async function setUserActive(id,active){if(!await appConfirm((active?'Activate':'Deactivate')+' this user?'))return;
 
 try{await api('adminSetUserActive',{userId:id,active});
 
-loadAdminUsers()}catch(e){alert(e.message)}}
+loadAdminUsers()}catch(e){appAlert(userFriendlyError(e))}}
 
 async function resetPassword(id,name){const p = await appPrompt(
     'New password for ' + name + ' (minimum 6 characters)',
@@ -6385,13 +6545,13 @@ if(!p)return;
 
 try{await api('adminResetPassword',{userId:id,password:p});
 
-alert('Password reset')}catch(e){alert(e.message)}}
+alert('Password reset')}catch(e){appAlert(userFriendlyError(e))}}
 
 async function loadAdminClubs(){try{showLoading('Loading clubs...');
 
 const d=await api('adminListClubs');
 
-adminClubsTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openClubForm()">+ Add Club</button></div><div class="table-wrap"><table><tr><th>Club ID</th><th>Club Name</th><th>Zone</th><th>President</th><th>Secretary</th><th>Status</th><th>Action</th></tr>${d.clubs.map(c=>`<tr><td>${esc(c.ClubID)}</td><td>${esc(c.ClubName)}</td><td>${esc(c.ZoneID)} ${esc(c.ZoneName||'')}</td><td>${esc(c.PresidentName||'')}</td><td>${esc(c.SecretaryName||'')}</td><td>${esc(c.Active)}</td><td><button class="btn btn-light" onclick='openClubForm(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminClubsTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+adminClubsTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openClubForm()">+ Add Club</button></div><div class="table-wrap"><table><tr><th>Club ID</th><th>Club Name</th><th>Zone</th><th>President</th><th>Secretary</th><th>Status</th><th>Action</th></tr>${d.clubs.map(c=>`<tr><td>${esc(c.ClubID)}</td><td>${esc(c.ClubName)}</td><td>${esc(c.ZoneID)} ${esc(c.ZoneName||'')}</td><td>${esc(c.PresidentName||'')}</td><td>${esc(c.SecretaryName||'')}</td><td>${esc(c.Active)}</td><td><button class="btn btn-light" onclick='openClubForm(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminClubsTab.innerHTML=`<div class="notice error">${esc(userFriendlyError(e))}</div>`}finally{hideLoading()}}
 
 function openClubForm(c={}){showModal(`<div class="row"><h2>${c.ClubID?'Edit':'Add'} Club</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club ID ${c.ClubID?'':'(blank = auto)'}</label><input id="acId" value="${esc(c.ClubID||'')}" ${c.ClubID?'disabled':''}></div><div class="field"><label>Club Name</label><input id="acName" value="${esc(c.ClubName||'')}"></div><div class="field"><label>Zone ID</label><input id="acZone" value="${esc(c.ZoneID||'')}"></div><div class="field"><label>Zone Name</label><input id="acZoneName" value="${esc(c.ZoneName||'')}"></div><div class="field"><label>Charter Date</label><input id="acCharter" type="date" value="${dateOnly(c.CharterDate)}"></div><div class="field"><label>President</label><input id="acPresident" value="${esc(c.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="acSecretary" value="${esc(c.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="acEmail" value="${esc(c.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="acPhone" value="${esc(c.ClubPhone||'')}"></div><div class="field"><label>Active</label><select id="acActive"><option value="TRUE" ${String(c.Active)!=='FALSE'?'selected':''}>TRUE</option><option value="FALSE" ${String(c.Active)==='FALSE'?'selected':''}>FALSE</option></select></div></div><button class="btn btn-primary" onclick="saveAdminClub()">Save Club</button>`)}
 
@@ -6401,7 +6561,7 @@ await api('adminSaveClub',{ClubID:acId.value,ClubName:acName.value,ZoneID:acZone
 
 closeModal();
 
-loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
+loadAdminClubs()}catch(e){appAlert(userFriendlyError(e))}finally{hideLoading()}}
 
 /* =========================================================
    ADMIN: ACCOUNT SECURITY
