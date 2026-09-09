@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.6.3
+  FINAL BASE v1.6.4
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -96,9 +96,169 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
   }
 }
 
+
+/* =========================================================
+   SYSTEM DEFAULT DIALOG
+   v1.6.4
+========================================================= */
+
+.system-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 22, 48, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.system-dialog-overlay.hide {
+  display: none;
+}
+
+.system-dialog-box {
+  width: min(440px, 100%);
+  overflow: hidden;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  animation: systemDialogIn 0.18s ease-out;
+}
+
+@keyframes systemDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.system-dialog-head {
+  padding: 18px 20px;
+  border-bottom: 3px solid #f2c94c;
+  background: #073b78;
+  color: #ffffff;
+}
+
+.system-dialog-head h3 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.system-dialog-body {
+  padding: 22px 20px 10px;
+  color: #25364d;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.system-dialog-input {
+  width: calc(100% - 40px);
+  margin: 8px 20px 4px;
+  padding: 12px 13px;
+  border: 1px solid #b9c6d8;
+  border-radius: 10px;
+  outline: none;
+  font: inherit;
+}
+
+.system-dialog-input:focus {
+  border-color: #073b78;
+  box-shadow: 0 0 0 3px rgba(7, 59, 120, 0.10);
+}
+
+.system-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 20px 20px;
+}
+
+.system-dialog-actions button {
+  min-width: 92px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.system-dialog-cancel {
+  background: #e9eef5;
+  color: #24364d;
+}
+
+.system-dialog-ok {
+  background: #073b78;
+  color: #ffffff;
+}
+
+.system-dialog-danger {
+  background: #b42318;
+  color: #ffffff;
+}
+
 </style>
 </head>
 <body>
+
+<div
+  id="systemDialogOverlay"
+  class="system-dialog-overlay hide"
+  aria-hidden="true"
+>
+  <div
+    class="system-dialog-box"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="systemDialogTitle"
+  >
+    <div class="system-dialog-head">
+      <h3 id="systemDialogTitle">
+        Lions Reporting System
+      </h3>
+    </div>
+
+    <div
+      id="systemDialogMessage"
+      class="system-dialog-body"
+    ></div>
+
+    <input
+      id="systemDialogInput"
+      class="system-dialog-input hide"
+      type="text"
+      autocomplete="off"
+    >
+
+    <div class="system-dialog-actions">
+      <button
+        id="systemDialogCancel"
+        class="system-dialog-cancel hide"
+        type="button"
+      >
+        Cancel
+      </button>
+
+      <button
+        id="systemDialogOk"
+        class="system-dialog-ok"
+        type="button"
+      >
+        OK
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="topbar">
 <div class="brand">LIONS CLUB DIGITAL REPORTING <small>Club → Zone → District</small>
 </div>
@@ -173,6 +333,268 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
 </div>
 
 <script>
+
+/* =========================================================
+   SYSTEM DEFAULT DIALOG ENGINE
+   v1.6.4
+
+   Native browser alert / confirm / prompt are not used.
+========================================================= */
+
+let SYSTEM_DIALOG_RESOLVE =
+  null;
+
+
+function openSystemDialog(
+  options = {}
+) {
+  return new Promise(resolve => {
+    const overlay =
+      document.getElementById(
+        'systemDialogOverlay'
+      );
+
+    const title =
+      document.getElementById(
+        'systemDialogTitle'
+      );
+
+    const message =
+      document.getElementById(
+        'systemDialogMessage'
+      );
+
+    const input =
+      document.getElementById(
+        'systemDialogInput'
+      );
+
+    const cancelButton =
+      document.getElementById(
+        'systemDialogCancel'
+      );
+
+    const okButton =
+      document.getElementById(
+        'systemDialogOk'
+      );
+
+    const mode =
+      options.mode ||
+      'alert';
+
+    title.textContent =
+      options.title ||
+      'Lions Reporting System';
+
+    message.textContent =
+      String(
+        options.message ||
+        ''
+      );
+
+    input.classList.toggle(
+      'hide',
+      mode !==
+        'prompt'
+    );
+
+    cancelButton.classList.toggle(
+      'hide',
+      mode ===
+        'alert'
+    );
+
+    okButton.textContent =
+      options.okText ||
+      'OK';
+
+    cancelButton.textContent =
+      options.cancelText ||
+      'Cancel';
+
+    okButton.className =
+      options.danger
+        ? 'system-dialog-danger'
+        : 'system-dialog-ok';
+
+    if (
+      mode ===
+      'prompt'
+    ) {
+      input.type =
+        options.inputType ||
+        'text';
+
+      input.value =
+        options.defaultValue ||
+        '';
+
+      input.placeholder =
+        options.placeholder ||
+        '';
+    }
+
+    overlay.classList.remove(
+      'hide'
+    );
+
+    overlay.setAttribute(
+      'aria-hidden',
+      'false'
+    );
+
+    SYSTEM_DIALOG_RESOLVE =
+      value => {
+        overlay.classList.add(
+          'hide'
+        );
+
+        overlay.setAttribute(
+          'aria-hidden',
+          'true'
+        );
+
+        SYSTEM_DIALOG_RESOLVE =
+          null;
+
+        resolve(
+          value
+        );
+      };
+
+    okButton.onclick =
+      () => {
+        if (
+          mode ===
+          'prompt'
+        ) {
+          SYSTEM_DIALOG_RESOLVE(
+            input.value
+          );
+          return;
+        }
+
+        SYSTEM_DIALOG_RESOLVE(
+          true
+        );
+      };
+
+    cancelButton.onclick =
+      () => {
+        SYSTEM_DIALOG_RESOLVE(
+          mode ===
+            'prompt'
+              ? null
+              : false
+        );
+      };
+
+    setTimeout(
+      () => {
+        if (
+          mode ===
+          'prompt'
+        ) {
+          input.focus();
+          input.select();
+        } else {
+          okButton.focus();
+        }
+      },
+      20
+    );
+  });
+}
+
+
+function appAlert(
+  message,
+  title =
+    'Lions Reporting System'
+) {
+  return openSystemDialog({
+    mode:
+      'alert',
+    title:
+      title,
+    message:
+      message,
+    okText:
+      'OK'
+  });
+}
+
+
+function appConfirm(
+  message,
+  title =
+    'Please Confirm'
+) {
+  return openSystemDialog({
+    mode:
+      'confirm',
+    title:
+      title,
+    message:
+      message,
+    okText:
+      'Confirm',
+    cancelText:
+      'Cancel'
+  });
+}
+
+
+function appPrompt(
+  message,
+  defaultValue =
+    '',
+  options =
+    {}
+) {
+  return openSystemDialog({
+    mode:
+      'prompt',
+    title:
+      options.title ||
+      'Enter Information',
+    message:
+      message,
+    defaultValue:
+      defaultValue,
+    inputType:
+      options.inputType ||
+      'text',
+    placeholder:
+      options.placeholder ||
+      '',
+    okText:
+      options.okText ||
+      'Save',
+    cancelText:
+      options.cancelText ||
+      'Cancel'
+  });
+}
+
+
+/*
+ * Compatibility:
+ * Any remaining alert() call is redirected to our own dialog,
+ * so district325f.github.io native message is not shown.
+ */
+window.alert =
+  function (
+    message
+  ) {
+    return appAlert(
+      message
+    );
+  };
+
+
+
 const API=(window.ZR_CONFIG&&window.ZR_CONFIG.API_URL)||'';
 
 let TOKEN=localStorage.getItem('ZR_TOKEN')||'',USER=null,CLUB=null,CURRENT_REPORT=null;
@@ -1733,7 +2155,7 @@ alert('Logo saved')}catch(e){alert(e.message)}finally{hideLoading()}}
 
 async function removeClubLogo() {
   if (
-    !confirm(
+    !await appConfirm(
       'Remove Club Logo? PDF will use default logo.png.'
     )
   ) {
@@ -1766,7 +2188,7 @@ async function removeClubLogo() {
 }
 
 
-async function startReport(){const m=prompt('Reporting Month (YYYY-MM)',currentMonth());
+async function startReport(){const m=await appPrompt('Reporting Month (YYYY-MM)',currentMonth());
 
 if(!m)return;
 
@@ -2045,7 +2467,7 @@ async function saveDraft(
       );
 
       if (!silent) {
-        const reload = confirm(
+        const reload = await appConfirm(
           message +
           '\n\nReload latest shared data now?'
         );
@@ -2123,7 +2545,7 @@ async function finalSubmit(){membershipCalc();
 
 if(num(rmMale.value)+num(rmFemale.value)!==num(rmTotal.value))return alert('Male + Female must equal Total Members.');
 
-if(!confirm('Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?'))return;
+if(!await appConfirm('Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?'))return;
 
 try{showLoading('Submitting to Zone...');
 
@@ -2137,7 +2559,7 @@ await loadClubDashboard();
 
 alert('Final report submitted to Zone Chairperson.')}catch(e){alert(e.message)}finally{hideLoading()}}
 
-async function askCorrection(reportId){const reason=prompt('Correction reason');
+async function askCorrection(reportId){const reason=await appPrompt('Correction reason');
 
 if(!reason)return;
 
@@ -2579,7 +3001,7 @@ const d=await api('zoneCorrectionRequests');
 
 zoneCorrectionTab.innerHTML=`<div class="card"><h2>Correction Requests</h2>${d.requests.length?`<div class="table-wrap"><table><tr><th>Club</th><th>Month</th><th>Reason</th><th>Requested</th><th>Action</th></tr>${d.requests.map(q=>`<tr><td>${esc(q.ClubName)}</td><td>${esc(q.ReportingMonth)}</td><td>${esc(q.Reason)}</td><td>${esc(q.CreatedAt)}</td><td><div class="actions"><button class="btn btn-ok" onclick="decideCorrection('${esc(q.RequestID)}','APPROVE')">Approve</button><button class="btn btn-danger" onclick="decideCorrection('${esc(q.RequestID)}','DENY')">Deny</button></div></td></tr>`).join('')}</table></div>`:`<div class="notice ok">No pending correction request.</div>`}</div>`}catch(e){zoneCorrectionTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
 
-async function decideCorrection(id,d){if(!confirm(d+' correction request?'))return;
+async function decideCorrection(id,d){if(!await appConfirm(d+' correction request?'))return;
 
 try{await api('zoneCorrectionDecision',{requestId:id,decision:d});
 
@@ -2874,7 +3296,7 @@ async function adminDashLoad() {
 
 
 async function downloadYearBackup() {
-  const fiscalYear = prompt(
+  const fiscalYear = await appPrompt(
     'Fiscal Year to backup',
     ''
   );
@@ -3071,13 +3493,21 @@ await loadAdminUsers();
 
 alert('User created')}catch(e){alert(e.message)}finally{hideLoading()}}
 
-async function setUserActive(id,active){if(!confirm((active?'Activate':'Deactivate')+' this user?'))return;
+async function setUserActive(id,active){if(!await appConfirm((active?'Activate':'Deactivate')+' this user?'))return;
 
 try{await api('adminSetUserActive',{userId:id,active});
 
 loadAdminUsers()}catch(e){alert(e.message)}}
 
-async function resetPassword(id,name){const p=prompt('New password for '+name+' (minimum 6 characters)');
+async function resetPassword(id,name){const p = await appPrompt(
+    'New password for ' + name + ' (minimum 6 characters)',
+    '',
+    {
+      title: 'Reset Password',
+      inputType: 'password',
+      okText: 'Reset'
+    }
+  );
 
 if(!p)return;
 
@@ -3298,7 +3728,7 @@ async function changeAdminPassword() {
   }
 
   if (
-    !confirm(
+    !await appConfirm(
       'Change Admin password now? You will be logged out from all Admin sessions.'
     )
   ) {
@@ -3368,7 +3798,7 @@ async function changeAdminUsername() {
   }
 
   if (
-    !confirm(
+    !await appConfirm(
       'Change Admin username to "' +
       newUsername +
       '"? You will be logged out from all Admin sessions.'
@@ -3978,7 +4408,7 @@ async function importLionsOfficerExcelData() {
     ).size;
 
   if (
-    !confirm(
+    !await appConfirm(
       'Import ' +
       LIONS_OFFICER_IMPORT_ROWS.length +
       ' President/Secretary records for ' +
@@ -4097,7 +4527,7 @@ async function loadAdminYearSettings() {
 
 async function saveAdminFiscalYear() {
   if (
-    !confirm(
+    !await appConfirm(
       'Current Fiscal Year change गर्ने? पुरानो reports सुरक्षित रहनेछन्।'
     )
   ) {
@@ -4529,7 +4959,7 @@ async function importZoneChairExcel() {
   );
 
   if (
-    !confirm(
+    !await appConfirm(
       rows.length +
       ' records import गरेर current master replace गर्ने?'
     )
