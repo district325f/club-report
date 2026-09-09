@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.7.0
+  FINAL BASE v1.7.1
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -204,6 +204,109 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
 .system-dialog-danger {
   background: #b42318;
   color: #ffffff;
+}
+
+
+/* =========================================================
+   v1.7.1 MOBILE FIT + PERFORMANCE UX
+========================================================= */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card,
+.notice,
+.kpi,
+.modal-card {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 820px) {
+  .wrap {
+    width: 100%;
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+  }
+
+  .toolbar,
+  .actions,
+  .section-title {
+    flex-wrap: wrap;
+  }
+
+  .toolbar .field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tabs {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+  }
+
+  .modal-card {
+    width: calc(100vw - 20px);
+    max-height: 88vh;
+    overflow-y: auto;
+    margin: 10px;
+  }
+
+  table {
+    min-width: 680px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid.g2,
+  .grid.g3,
+  .grid.g4 {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    min-height: 42px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  h2 {
+    font-size: 19px;
+  }
+
+  h3 {
+    font-size: 17px;
+  }
 }
 
 </style>
@@ -643,7 +746,7 @@ r.onerror=rej;
 
 r.readAsDataURL(f)})}
 
-async function api(
+async function apiNetwork(
   action,
   payload = {}
 ) {
@@ -767,7 +870,107 @@ async function api(
   }
 }
 
+const API_READ_CACHE =
+  new Map();
 
+const API_READ_CACHE_TTL =
+  60000;
+
+const API_CACHEABLE_ACTIONS =
+  new Set([
+    'me',
+    'clubDashboard',
+    'zoneDashboard',
+    'zoneCorrectionRequests',
+    'adminDashboard',
+    'districtZoneAnalytics',
+    'districtSubmissionMonitoring',
+    'adminAuditDashboard',
+    'systemHealthDashboard',
+    'adminListUsers',
+    'adminListMappings',
+    'adminListZoneChairpersons',
+    'adminListClubOfficers'
+  ]);
+
+
+function apiCacheKey(
+  action,
+  payload
+) {
+  return (
+    String(
+      action
+    ) +
+    '|' +
+    JSON.stringify(
+      payload ||
+      {}
+    )
+  );
+}
+
+
+function clearApiReadCache() {
+  API_READ_CACHE.clear();
+}
+
+
+async function api(
+  action,
+  payload = {}
+) {
+  const cacheable =
+    API_CACHEABLE_ACTIONS.has(
+      action
+    );
+
+  const key =
+    apiCacheKey(
+      action,
+      payload
+    );
+
+  if (cacheable) {
+    const cached =
+      API_READ_CACHE.get(
+        key
+      );
+
+    if (
+      cached &&
+      (
+        Date.now() -
+        cached.time
+      ) <
+        API_READ_CACHE_TTL
+    ) {
+      return cached.data;
+    }
+  }
+
+  const result =
+    await apiNetwork(
+      action,
+      payload
+    );
+
+  if (cacheable) {
+    API_READ_CACHE.set(
+      key,
+      {
+        time:
+          Date.now(),
+        data:
+          result
+      }
+    );
+  } else {
+    clearApiReadCache();
+  }
+
+  return result;
+}
 
 
 /* =========================================================
