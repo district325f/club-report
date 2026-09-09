@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.6.7
+  FINAL BASE v1.6.8
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -1808,43 +1808,88 @@ async function loadClubDashboard() {
       data.reports ||
       [];
 
+    window.CLUB_CORRECTION_HISTORY =
+      data.correctionHistory ||
+      [];
+
+    const currentMonth =
+      data.currentMonth ||
+      currentMonth();
+
+    const currentReport =
+      data.currentReport ||
+      null;
+
+    const currentStatus =
+      currentReport
+        ? currentReport.Status
+        : 'NOT STARTED';
+
     const years = [
       ...new Set(
         CLUB_REPORT_HISTORY
-          .map(
-            report =>
-              String(
-                report.FiscalYear ||
-                ''
-              )
-          )
+          .map(report => {
+            return String(
+              report.FiscalYear ||
+              ''
+            );
+          })
           .filter(Boolean)
       )
     ].sort().reverse();
 
     clubDashboardTab.innerHTML = `
-      <div class="grid g3">
+      <div class="grid g4">
         <div class="kpi">
           <span>Club</span>
-          <strong style="font-size:19px">
-            ${esc(CLUB?.ClubName || USER.clubId)}
+          <strong style="font-size:18px">
+            ${esc(
+              CLUB?.ClubName ||
+              USER.clubId
+            )}
           </strong>
           <small>
-            ${esc(CLUB?.ZoneName || CLUB?.ZoneID || '')}
+            ${esc(
+              CLUB?.ZoneName ||
+              CLUB?.ZoneID ||
+              ''
+            )}
+          </small>
+        </div>
+
+        <div class="kpi">
+          <span>Current Month</span>
+          <strong style="font-size:21px">
+            ${esc(currentMonth)}
+          </strong>
+        </div>
+
+        <div class="kpi">
+          <span>Current Status</span>
+          <strong style="font-size:19px">
+            ${esc(currentStatus)}
+          </strong>
+          <small>
+            ${
+              currentReport
+                ? 'Version ' +
+                  esc(
+                    currentReport.Version ||
+                    1
+                  )
+                : 'Report not started'
+            }
           </small>
         </div>
 
         <div class="kpi">
           <span>Report History</span>
-          <strong>${CLUB_REPORT_HISTORY.length}</strong>
-          <small>Draft + Submitted</small>
-        </div>
-
-        <div class="kpi">
-          <span>Current Month</span>
-          <strong style="font-size:22px">
-            ${currentMonth()}
+          <strong>
+            ${CLUB_REPORT_HISTORY.length}
           </strong>
+          <small>
+            Draft + Submitted + Correction
+          </small>
         </div>
       </div>
 
@@ -1853,7 +1898,111 @@ async function loadClubDashboard() {
         style="margin-top:14px"
       >
         <div class="section-title">
-          <h3>My Reports</h3>
+          <div>
+            <h3>
+              Current Reporting Action
+            </h3>
+
+            <div class="muted">
+              ${esc(currentMonth)}
+            </div>
+          </div>
+
+          <div class="spacer"></div>
+
+          ${
+            !currentReport
+              ? `
+                <button
+                  class="btn btn-gold"
+                  onclick="startReportForMonth(
+                    '${esc(currentMonth)}'
+                  )"
+                >
+                  + Create Current Report
+                </button>
+              `
+              : [
+                  'DRAFT',
+                  'CORRECTION'
+                ].includes(
+                  currentReport.Status
+                )
+                ? `
+                  <button
+                    class="btn btn-primary"
+                    onclick="openReport(
+                      '${esc(currentReport.ReportID)}'
+                    )"
+                  >
+                    Edit Current Report
+                  </button>
+                `
+                : `
+                  <button
+                    class="btn btn-light"
+                    onclick="printReportById(
+                      '${esc(currentReport.ReportID)}'
+                    )"
+                  >
+                    PDF / Print
+                  </button>
+
+                  <button
+                    class="btn btn-light"
+                    onclick="askCorrection(
+                      '${esc(currentReport.ReportID)}'
+                    )"
+                  >
+                    Request Correction
+                  </button>
+                `
+          }
+        </div>
+
+        ${
+          currentReport
+            ? `
+              <div class="table-wrap">
+                <table>
+                  <tr>
+                    <th>Status</th>
+                    <th>Version</th>
+                    <th>Total Members</th>
+                    <th>Net Growth</th>
+                    <th>Last Saved</th>
+                    <th>Submitted</th>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <span class="status st-${esc(currentReport.Status)}">
+                        ${esc(currentReport.Status)}
+                      </span>
+                    </td>
+                    <td>${esc(currentReport.Version || 1)}</td>
+                    <td>${esc(currentReport.TotalMembers || 0)}</td>
+                    <td>${esc(currentReport.NetGrowth || 0)}</td>
+                    <td>${esc(currentReport.LastSavedAt || currentReport.UpdatedAt || '-')}</td>
+                    <td>${esc(currentReport.SubmittedAt || '-')}</td>
+                  </tr>
+                </table>
+              </div>
+            `
+            : `
+              <div class="notice">
+                यो महिनाको report अझै सुरु गरिएको छैन।
+              </div>
+            `
+        }
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <div class="section-title">
+          <h3>My Report History</h3>
 
           <div class="spacer"></div>
 
@@ -1861,7 +2010,7 @@ async function loadClubDashboard() {
             class="btn btn-gold"
             onclick="startReport()"
           >
-            + New Report
+            + New / Old Month Report
           </button>
         </div>
 
@@ -1873,7 +2022,10 @@ async function loadClubDashboard() {
               id="historyFiscalYear"
               onchange="renderClubReportHistory()"
             >
-              <option value="">All Years</option>
+              <option value="">
+                All Years
+              </option>
+
               ${years.map(year => `
                 <option value="${esc(year)}">
                   ${esc(year)}
@@ -1902,6 +2054,17 @@ async function loadClubDashboard() {
 
         <div id="clubReportHistoryTable"></div>
       </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <div class="section-title">
+          <h3>Correction History</h3>
+        </div>
+
+        ${renderClubCorrectionHistoryHtml()}
+      </div>
     `;
 
     renderClubReportHistory();
@@ -1919,6 +2082,109 @@ async function loadClubDashboard() {
   }
 }
 
+
+function renderClubCorrectionHistoryHtml() {
+  const rows =
+    window.CLUB_CORRECTION_HISTORY ||
+    [];
+
+  if (!rows.length) {
+    return `
+      <div class="notice">
+        No correction request history.
+      </div>
+    `;
+  }
+
+  return `
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Report</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th>Decision Note</th>
+          <th>Requested</th>
+          <th>Decision</th>
+          <th>Version</th>
+        </tr>
+
+        ${rows.map(row => `
+          <tr>
+            <td>${esc(row.ReportID || '-')}</td>
+            <td>${esc(row.Reason || '-')}</td>
+            <td>${esc(row.Status || '-')}</td>
+            <td>${esc(row.DecisionNote || '-')}</td>
+            <td>${esc(row.CreatedAt || '-')}</td>
+            <td>${esc(row.DecisionAt || '-')}</td>
+            <td>
+              ${esc(row.ReportVersionAtRequest || '-')}
+              →
+              ${esc(row.ReportVersionAfterDecision || '-')}
+            </td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  `;
+}
+
+
+async function startReportForMonth(
+  month
+) {
+  try {
+    showLoading(
+      'Opening report...'
+    );
+
+    const data = await api(
+      'getOrCreateReport',
+      {
+        reportingMonth:
+          month
+      }
+    );
+
+    CURRENT_REPORT =
+      data.report;
+
+    loadReportIntoForm(
+      data.report
+    );
+
+    document
+      .querySelectorAll(
+        '#clubApp .tab'
+      )
+      .forEach(tab => {
+        tab.classList.remove(
+          'active'
+        );
+      });
+
+    clubDashboardTab.classList.add(
+      'hide'
+    );
+
+    clubProfileTab.classList.add(
+      'hide'
+    );
+
+    clubReportTab.classList.remove(
+      'hide'
+    );
+
+  } catch (error) {
+    await appAlert(
+      error.message,
+      'Report Error'
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
 
 function clearClubHistoryFilter() {
   if (
@@ -2613,23 +2879,192 @@ function startAutoSave(){clearInterval(AUTO_SAVE_TIMER);
 
 if(CURRENT_REPORT&&CURRENT_REPORT.master.Status!=='SUBMITTED')AUTO_SAVE_TIMER=setInterval(()=>saveDraft(true),60000)}
 
-async function finalSubmit(){membershipCalc();
+function validateFinalSubmitData() {
+  membershipCalc();
 
-if(num(rmMale.value)+num(rmFemale.value)!==num(rmTotal.value))return alert('Male + Female must equal Total Members.');
+  const errors =
+    [];
 
-if(!await appConfirm('Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?'))return;
+  const opening =
+    num(
+      rmOpening.value
+    );
 
-try{showLoading('Submitting to Zone...');
+  const added =
+    num(
+      rmAdd.value
+    );
 
-const d=await api('submitFinal',collectPayload());
+  const dropped =
+    num(
+      rmDrop.value
+    );
 
-CURRENT_REPORT=d.report;
+  const total =
+    num(
+      rmTotal.value
+    );
 
-loadReportIntoForm(d.report);
+  const male =
+    num(
+      rmMale.value
+    );
 
-await loadClubDashboard();
+  const female =
+    num(
+      rmFemale.value
+    );
 
-alert('Final report submitted to Zone Chairperson.')}catch(e){alert(e.message)}finally{hideLoading()}}
+  const expectedTotal =
+    opening +
+    added -
+    dropped;
+
+  if (
+    opening < 0 ||
+    added < 0 ||
+    dropped < 0 ||
+    total < 0 ||
+    male < 0 ||
+    female < 0
+  ) {
+    errors.push(
+      'Membership values negative हुन मिल्दैन।'
+    );
+  }
+
+  if (
+    expectedTotal !==
+    total
+  ) {
+    errors.push(
+      'Opening + Add - Drop = Total Members हुनुपर्छ।'
+    );
+  }
+
+  if (
+    male +
+      female !==
+    total
+  ) {
+    errors.push(
+      'Male + Female = Total Members हुनुपर्छ।'
+    );
+  }
+
+  if (
+    !CURRENT_REPORT ||
+    !CURRENT_REPORT.master
+  ) {
+    errors.push(
+      'Report master data load भएको छैन।'
+    );
+  }
+
+  if (
+    CURRENT_REPORT &&
+    CURRENT_REPORT.master &&
+    !String(
+      CURRENT_REPORT.master.ReportingMonth ||
+      ''
+    ).trim()
+  ) {
+    errors.push(
+      'Reporting Month आवश्यक छ।'
+    );
+  }
+
+  if (
+    !CLUB ||
+    !String(
+      CLUB.ClubName ||
+      ''
+    ).trim()
+  ) {
+    errors.push(
+      'Club Profile मा Club Name आवश्यक छ।'
+    );
+  }
+
+  return errors;
+}
+
+
+async function finalSubmit() {
+  const errors =
+    validateFinalSubmitData();
+
+  if (
+    errors.length
+  ) {
+    await appAlert(
+      `
+        Final Submit अघि यी data सच्याउनुहोस्:
+
+        ${errors.map(
+          (
+            error,
+            index
+          ) => {
+            return (
+              (index + 1) +
+              '. ' +
+              error
+            );
+          }
+        ).join('\n')}
+      `,
+      'Final Submit Validation'
+    );
+
+    return;
+  }
+
+  const confirmed =
+    await appConfirm(
+      'Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?',
+      'Final Submit'
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showLoading(
+      'Submitting to Zone...'
+    );
+
+    const data =
+      await api(
+        'submitFinal',
+        collectPayload()
+      );
+
+    CURRENT_REPORT =
+      data.report;
+
+    loadReportIntoForm(
+      data.report
+    );
+
+    await loadClubDashboard();
+
+    await appAlert(
+      'Final report submitted to Zone Chairperson.',
+      'Report Submitted'
+    );
+
+  } catch (error) {
+    await appAlert(
+      error.message,
+      'Submit Error'
+    );
+
+  } finally {
+    hideLoading();
+  }
+}
 
 async function askCorrection(reportId){const reason=await appPrompt('Correction reason');
 
@@ -2637,7 +3072,7 @@ if(!reason)return;
 
 try{await api('requestCorrection',{reportId,reason});
 
-alert('Correction request sent to Zone Chairperson.')}catch(e){alert(e.message)}}
+await appAlert('Correction request sent to Zone Chairperson.','Correction Request')}catch(e){await appAlert(e.message,'Correction Error')}}
 
 async function printReportById(id){try{showLoading('Preparing PDF...');
 
@@ -2645,7 +3080,7 @@ const d=await api('getReport',{reportId:id});
 
 buildPrint(d.report);
 
-window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
+window.print()}catch(e){await appAlert(e.message,'Print Error')}finally{hideLoading()}}
 
 function previewPrint(){buildPrint(CURRENT_REPORT);
 
@@ -3333,11 +3768,16 @@ async function zoneLoad() {
               ${data.clubs.map(club => `
                 <tr>
                   <td>
-                    <b>
+                    <button
+                      class="btn btn-light"
+                      onclick="zoneClubDetail(
+                        '${esc(club.clubId)}'
+                      )"
+                    >
                       ${esc(
                         club.clubName
                       )}
-                    </b>
+                    </button>
                   </td>
 
                   <td>
@@ -3418,6 +3858,64 @@ async function zoneLoad() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div
+        class="card"
+        style="margin-top:14px"
+      >
+        <div class="notice ok">
+          Zone account को Zone ID अनुसार Clubs automatically load भएका छन्।
+          Club-by-club manual selection आवश्यक छैन।
+        </div>
+
+        <div class="section-title">
+          <h3>
+            Missing Report Follow-up
+          </h3>
+        </div>
+
+        ${
+          data.clubs.filter(club => {
+            return club.status !==
+              'SUBMITTED';
+          }).length
+            ? `
+              <div class="table-wrap">
+                <table>
+                  <tr>
+                    <th>Club</th>
+                    <th>Status</th>
+                    <th>President</th>
+                    <th>Secretary</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+
+                  ${data.clubs
+                    .filter(club => {
+                      return club.status !==
+                        'SUBMITTED';
+                    })
+                    .map(club => `
+                      <tr>
+                        <td>${esc(club.clubName)}</td>
+                        <td>${esc(zoneStatusLabel(club.status))}</td>
+                        <td>${esc(club.presidentName || '-')}</td>
+                        <td>${esc(club.secretaryName || '-')}</td>
+                        <td>${esc(club.clubEmail || '-')}</td>
+                        <td>${esc(club.clubPhone || '-')}</td>
+                      </tr>
+                    `).join('')}
+                </table>
+              </div>
+            `
+            : `
+              <div class="notice ok">
+                सबै Clubs ले selected period को report submit गरेका छन्।
+              </div>
+            `
+        }
       </div>
 
       <div
@@ -3549,6 +4047,181 @@ async function zoneViewReport(
   } finally {
     hideLoading();
   }
+}
+
+
+
+function zoneClubDetail(
+  clubId
+) {
+  if (!LAST_ZONE_DASHBOARD) {
+    return;
+  }
+
+  const club =
+    LAST_ZONE_DASHBOARD.clubs.find(row => {
+      return String(
+        row.clubId
+      ) ===
+        String(
+          clubId
+        );
+    });
+
+  if (!club) {
+    return;
+  }
+
+  const submitted =
+    club.status ===
+      'SUBMITTED';
+
+  showModal(`
+    <div class="row">
+      <div>
+        <h2>
+          ${esc(club.clubName)}
+        </h2>
+
+        <div class="muted">
+          ${esc(
+            LAST_ZONE_DASHBOARD.reportingMonth
+          )}
+          •
+          ${esc(
+            LAST_ZONE_DASHBOARD.fiscalYear ||
+            ''
+          )}
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <div
+      class="notice ${
+        submitted
+          ? 'ok'
+          : ''
+      }"
+      style="margin-top:14px"
+    >
+      Status:
+      <b>
+        ${esc(
+          zoneStatusLabel(
+            club.status
+          )
+        )}
+      </b>
+
+      ${
+        submitted
+          ? ''
+          : '<br>Draft/Not Submitted report को भित्री data Zone Chairperson लाई देखाइँदैन।'
+      }
+    </div>
+
+    ${
+      submitted
+        ? `
+          <div
+            class="grid g4"
+            style="margin-top:14px"
+          >
+            <div class="kpi">
+              <span>Members</span>
+              <strong>${club.totalMembers}</strong>
+              <small>Net ${club.netGrowth}</small>
+            </div>
+
+            <div class="kpi">
+              <span>Services</span>
+              <strong>${club.serviceCount}</strong>
+              <small>Beneficiaries ${club.totalBeneficiaries}</small>
+            </div>
+
+            <div class="kpi">
+              <span>Blood Units</span>
+              <strong>${club.bloodUnits}</strong>
+            </div>
+
+            <div class="kpi">
+              <span>Programs</span>
+              <strong>${club.programCount}</strong>
+            </div>
+          </div>
+
+          <div
+            class="table-wrap"
+            style="margin-top:14px"
+          >
+            <table>
+              <tr>
+                <th>Opening</th>
+                <th>Add</th>
+                <th>Drop</th>
+                <th>Total</th>
+                <th>Male</th>
+                <th>Female</th>
+              </tr>
+
+              <tr>
+                <td>${club.openingMembers}</td>
+                <td>${club.addedMembers}</td>
+                <td>${club.droppedMembers}</td>
+                <td>${club.totalMembers}</td>
+                <td>${club.maleMembers}</td>
+                <td>${club.femaleMembers}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div
+            class="actions"
+            style="margin-top:14px"
+          >
+            <button
+              class="btn btn-primary"
+              onclick="closeModal();zoneViewReport(
+                '${esc(club.reportId)}'
+              )"
+            >
+              Open Full Submitted Report
+            </button>
+          </div>
+        `
+        : `
+          <div
+            class="table-wrap"
+            style="margin-top:14px"
+          >
+            <table>
+              <tr>
+                <th>President</th>
+                <th>Secretary</th>
+                <th>Club Email</th>
+                <th>Club Phone</th>
+              </tr>
+
+              <tr>
+                <td>${esc(club.presidentName || '-')}</td>
+                <td>${esc(club.secretaryName || '-')}</td>
+                <td>${esc(club.clubEmail || '-')}</td>
+                <td>${esc(club.clubPhone || '-')}</td>
+              </tr>
+            </table>
+          </div>
+        `
+    }
+  `);
 }
 
 
@@ -4451,19 +5124,167 @@ async function loadAdminDashboard() {
 
         <button
           class="btn btn-primary"
-          onclick="adminDashLoad()"
+          onclick="adminDashboardLoadAll()"
         >
           Load
         </button>
       </div>
 
       <div id="adminStats"></div>
+
+      <div
+        id="districtZoneAnalytics"
+        style="margin-top:14px"
+      ></div>
     </div>
   `;
 
-  await adminDashLoad();
+  await adminDashboardLoadAll();
 }
 
+
+
+
+async function adminDashboardLoadAll() {
+  await adminDashLoad();
+  await loadDistrictZoneAnalytics();
+}
+
+
+async function loadDistrictZoneAnalytics() {
+  const container =
+    document.getElementById(
+      'districtZoneAnalytics'
+    );
+
+  if (!container) {
+    return;
+  }
+
+  try {
+    const data = await api(
+      'districtZoneAnalytics',
+      {
+        reportingMonth:
+          adminMonth.value
+      }
+    );
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="section-title">
+          <div>
+            <h3>
+              District Zone Analytics
+            </h3>
+
+            <div class="muted">
+              ${esc(data.reportingMonth)}
+              • Fiscal Year
+              ${esc(data.fiscalYear || '-')}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g4">
+          <div class="kpi">
+            <span>Zones</span>
+            <strong>${data.totals.zones}</strong>
+          </div>
+
+          <div class="kpi">
+            <span>Submitted Clubs</span>
+            <strong>
+              ${data.totals.submitted}
+              /
+              ${data.totals.totalClubs}
+            </strong>
+          </div>
+
+          <div class="kpi">
+            <span>Total Members</span>
+            <strong>${data.totals.totalMembers}</strong>
+            <small>Net ${data.totals.netGrowth}</small>
+          </div>
+
+          <div class="kpi">
+            <span>Services</span>
+            <strong>${data.totals.totalServices}</strong>
+          </div>
+
+          <div class="kpi">
+            <span>Blood Units</span>
+            <strong>${data.totals.bloodUnits}</strong>
+          </div>
+
+          <div class="kpi">
+            <span>Contributions</span>
+            <strong>${money(data.totals.contributions)}</strong>
+          </div>
+
+          <div class="kpi">
+            <span>Programs</span>
+            <strong>${data.totals.programs}</strong>
+          </div>
+        </div>
+
+        <div
+          class="table-wrap"
+          style="margin-top:14px"
+        >
+          <table>
+            <tr>
+              <th>Zone</th>
+              <th>Submitted</th>
+              <th>Completion</th>
+              <th>Members</th>
+              <th>Net</th>
+              <th>Services</th>
+              <th>Beneficiaries</th>
+              <th>Blood</th>
+              <th>Contributions</th>
+              <th>Programs</th>
+            </tr>
+
+            ${data.zones.map(zone => `
+              <tr>
+                <td>
+                  <b>${esc(zone.zoneName)}</b>
+                </td>
+
+                <td>
+                  ${zone.submitted}
+                  /
+                  ${zone.totalClubs}
+                </td>
+
+                <td>
+                  ${zone.completionPercent}%
+                </td>
+
+                <td>${zone.totalMembers}</td>
+                <td>${zone.netGrowth}</td>
+                <td>${zone.totalServices}</td>
+                <td>${zone.beneficiaries}</td>
+                <td>${zone.bloodUnits}</td>
+                <td>${money(zone.contributions)}</td>
+                <td>${zone.programs}</td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="notice error">
+        District Zone Analytics:
+        ${esc(error.message)}
+      </div>
+    `;
+  }
+}
 
 async function adminDashLoad() {
   try {
