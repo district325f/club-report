@@ -47,6 +47,11 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
   .p-small{font-size:9.5px}.p-footer{text-align:center;font-size:8.5px;color:#687786;margin-top:8px}.p-sign{display:grid;grid-template-columns:1fr 1fr;gap:25mm;margin-top:20mm}.p-sign div{border-top:1px solid #444;padding-top:3px;text-align:center;font-size:9px}
 }
 @media(max-width:820px){.g2,.g3,.g4,.photo-row{grid-template-columns:1fr}.topbar{align-items:flex-start}.wrap{margin-top:12px}}
+
+/* =========================================================
+   VERIFIED ACCOUNT REGISTRATION
+========================================================= */
+.login-switch{margin-top:14px;text-align:center}.text-link{border:0;background:transparent;color:var(--blue);font-weight:700;cursor:pointer;text-decoration:underline}.reg-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.reg-switch button{padding:10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--blue);font-weight:700;cursor:pointer}.reg-switch button.active{background:var(--blue);color:#fff}
 </style>
 </head>
 <body>
@@ -67,6 +72,10 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
     <div class="field"><label>Username</label><input id="username" autocomplete="username"></div>
     <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password"></div>
     <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+    <div class="login-switch">
+      <span class="muted">President / Secretary / Zone Chairperson?</span>
+      <button class="text-link" onclick="openRegistration()">Create Account</button>
+    </div>
   </div>
 </div>
 
@@ -102,6 +111,179 @@ async function api(action,payload={},token=TOKEN){
   const res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload,token})});
   const d=await res.json();if(!d.ok)throw new Error(d.error||'Request failed');return d;
 }
+
+
+
+/* =========================================================
+   VERIFIED SELF REGISTRATION
+========================================================= */
+let REGISTRATION_TYPE = 'CLUB';
+
+async function openRegistration() {
+  try {
+    showLoading('Loading registration...');
+
+    const info = await api('registrationInfo', {}, '');
+    REGISTRATION_TYPE = 'CLUB';
+
+    showModal(`
+      <div class="row">
+        <h2>Create Account</h2>
+        <div class="spacer"></div>
+        <button class="btn btn-light" onclick="closeModal()">Close</button>
+      </div>
+
+      <div class="notice ok">
+        Current Fiscal Year: <b>${esc(info.fiscalYear || '')}</b>
+      </div>
+
+      <div class="reg-switch">
+        <button id="regClubTab" class="active" onclick="switchRegistration('CLUB')">
+          President / Secretary
+        </button>
+
+        <button id="regZoneTab" onclick="switchRegistration('ZONE')">
+          Zone Chairperson
+        </button>
+      </div>
+
+      <div id="registrationForm"></div>
+    `);
+
+    renderRegistrationForm();
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function switchRegistration(type) {
+  REGISTRATION_TYPE = type;
+
+  regClubTab.classList.toggle('active', type === 'CLUB');
+  regZoneTab.classList.toggle('active', type === 'ZONE');
+
+  renderRegistrationForm();
+}
+
+function renderRegistrationForm() {
+  if (REGISTRATION_TYPE === 'CLUB') {
+    registrationForm.innerHTML = `
+      <div class="notice">
+        केवल current President वा Secretary को Lion ID + Club ID master record
+        match भएमा मात्र account create हुन्छ।
+      </div>
+
+      <div class="grid g2">
+        <div class="field">
+          <label>Lion ID</label>
+          <input id="regLionId" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label>Club ID</label>
+          <input id="regClubId">
+        </div>
+
+        <div class="field">
+          <label>Username</label>
+          <input id="regUsername">
+        </div>
+
+        <div class="field">
+          <label>Password</label>
+          <input id="regPassword" type="password">
+        </div>
+
+        <div class="field">
+          <label>Confirm Password</label>
+          <input id="regConfirm" type="password">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="submitRegistration()">
+        Verify & Create Club Account
+      </button>
+    `;
+  } else {
+    registrationForm.innerHTML = `
+      <div class="notice">
+        Zone select गर्न पाइँदैन। Lion ID verify भएपछि system ले Zone
+        automatically detect गर्छ।
+      </div>
+
+      <div class="grid g2">
+        <div class="field">
+          <label>Lion ID</label>
+          <input id="regLionId" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label>Username</label>
+          <input id="regUsername">
+        </div>
+
+        <div class="field">
+          <label>Password</label>
+          <input id="regPassword" type="password">
+        </div>
+
+        <div class="field">
+          <label>Confirm Password</label>
+          <input id="regConfirm" type="password">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="submitRegistration()">
+        Verify Lion ID & Create Zone Account
+      </button>
+    `;
+  }
+}
+
+async function submitRegistration() {
+  if (regPassword.value !== regConfirm.value) {
+    alert('Password and Confirm Password do not match.');
+    return;
+  }
+
+  try {
+    showLoading('Verifying account...');
+
+    let result;
+
+    if (REGISTRATION_TYPE === 'CLUB') {
+      result = await api('registerClubOfficer', {
+        lionId: regLionId.value.trim(),
+        clubId: regClubId.value.trim(),
+        username: regUsername.value.trim(),
+        password: regPassword.value
+      }, '');
+    } else {
+      result = await api('registerZoneChairperson', {
+        lionId: regLionId.value.trim(),
+        username: regUsername.value.trim(),
+        password: regPassword.value
+      }, '');
+    }
+
+    closeModal();
+
+    const extra = result.zoneId
+      ? `\nDetected Zone: ${result.zoneId} ${result.zoneName || ''}`
+      : result.clubName
+        ? `\nClub: ${result.clubName} | ${result.position || ''}`
+        : '';
+
+    alert(result.message + extra);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    hideLoading();
+  }
+}
+
 
 async function login(){
   try{showLoading('Logging in...');const d=await api('login',{username:username.value.trim(),password:password.value},'');TOKEN=d.token;USER=d.user;localStorage.setItem('ZR_TOKEN',TOKEN);enterApp()}
