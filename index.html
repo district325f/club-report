@@ -4,7 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lions Club Digital Reporting</title>
-<script src="config.js"></script>
+<!--
+  LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
+  FINAL BASE v1.3.0
+  READABLE / MULTI-LINE SOURCE
+-->
+<script src="config.js">
+</script>
 <style>
 :root{
   --blue:#123d73;--blue2:#0a2d59;--gold:#f3b51b;--bg:#f3f6fb;--card:#fff;
@@ -73,69 +79,114 @@ input,select,textarea{width:100%;padding:10px 11px;border:1px solid #cbd6e2;bord
 </head>
 <body>
 <div class="topbar">
-  <div class="brand">LIONS CLUB DIGITAL REPORTING <small>Club → Zone → District</small></div>
-  <div class="spacer"></div><div id="userBadge" class="user-badge"></div>
-  <button id="logoutBtn" class="btn btn-light hide" onclick="logout()">Logout</button>
+<div class="brand">LIONS CLUB DIGITAL REPORTING <small>Club → Zone → District</small>
 </div>
-
-<div id="loading" class="hide"><div><div class="spinner"></div><div id="loadingText">Processing...</div></div></div>
-
+<div class="spacer">
+</div>
+<div id="userBadge" class="user-badge">
+</div>
+<button id="logoutBtn" class="btn btn-light hide" onclick="logout()">Logout</button>
+</div>
+<div id="loading" class="hide">
+<div>
+<div class="spinner">
+</div>
+<div id="loadingText">Processing...</div>
+</div>
+</div>
 <div id="loginView" class="login-shell">
-  <div class="card login-card">
-    <div class="logo-circle">
-      <img
+<div class="card login-card">
+<div class="logo-circle">
+<img
         src="logo.png"
         alt="Lions Club Logo"
         class="login-logo"
       >
-    </div>
-    <h2 style="text-align:center">System Login</h2>
-    <p class="muted" style="text-align:center">Club • Zone Chairperson • District Admin</p>
-    <div id="loginMsg"></div>
-    <div class="field"><label>Username</label><input id="username" autocomplete="username"></div>
-    <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password"></div>
-    <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
-    <div class="login-switch">
-      <span class="muted">President / Secretary / Zone Chairperson?</span>
-      <button class="text-link" onclick="openRegistration()">Create Account</button>
-    </div>
-  </div>
 </div>
-
+<h2 style="text-align:center">System Login</h2>
+<p class="muted" style="text-align:center">Club • Zone Chairperson • District Admin</p>
+<div id="loginMsg">
+</div>
+<div class="field">
+<label>Username</label>
+<input id="username" autocomplete="username">
+</div>
+<div class="field">
+<label>Password</label>
+<input id="password" type="password" autocomplete="current-password">
+</div>
+<button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+<div class="login-switch">
+<span class="muted">President / Secretary / Zone Chairperson?</span>
+<button class="text-link" onclick="openRegistration()">Create Account</button>
+</div>
+</div>
+</div>
 <div id="appView" class="wrap hide">
-  <div id="clubApp" class="hide"></div>
-  <div id="zoneApp" class="hide"></div>
-  <div id="adminApp" class="hide"></div>
+<div id="clubApp" class="hide">
 </div>
-
-<div id="modal" class="modal hide"><div id="modalCard" class="modal-card"></div></div>
-<div id="printArea"></div>
+<div id="zoneApp" class="hide">
+</div>
+<div id="adminApp" class="hide">
+</div>
+</div>
+<div id="modal" class="modal hide">
+<div id="modalCard" class="modal-card">
+</div>
+</div>
+<div id="printArea">
+</div>
 
 <script>
 const API=(window.ZR_CONFIG&&window.ZR_CONFIG.API_URL)||'';
+
 let TOKEN=localStorage.getItem('ZR_TOKEN')||'',USER=null,CLUB=null,CURRENT_REPORT=null;
+
 let SERVICES=[],CONTRIBUTIONS=[],PROGRAMS=[],BLOOD=[],FUTURE=[],AUTO_SAVE_TIMER=null;
 
 const $=id=>document.getElementById(id);
+
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
+
+const num=v=>{const n=Number(v);
+return Number.isFinite(n)?n:0};
+
 const currentMonth=()=>new Date().toISOString().slice(0,7);
+
 const money=n=>new Intl.NumberFormat().format(num(n));
-function dateOnly(v){if(!v)return'';const s=String(v);if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);return''}
-function showLoading(t='Processing...'){$('loadingText').textContent=t;$('loading').classList.remove('hide')}
+
+function dateOnly(v){if(!v)return'';
+const s=String(v);
+if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
+return''}
+
+function showLoading(t='Processing...'){$('loadingText').textContent=t;
+$('loading').classList.remove('hide')}
+
 function hideLoading(){$('loading').classList.add('hide')}
-function showModal(html){$('modalCard').innerHTML=html;$('modal').classList.remove('hide')}
+
+function showModal(html){$('modalCard').innerHTML=html;
+$('modal').classList.remove('hide')}
+
 function closeModal(){$('modal').classList.add('hide')}
+
 function notice(id,text,type=''){$(id).innerHTML=`<div class="notice ${type}">${esc(text)}</div>`}
-function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+
+function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();
+r.onload=()=>res(r.result);
+r.onerror=rej;
+r.readAsDataURL(f)})}
 
 async function api(action,payload={},token=TOKEN){
   if(!API||API.includes('PASTE_YOUR')) throw new Error('config.js मा Apps Script Web App URL राख्नुहोस्।');
+
   const res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload,token})});
-  const d=await res.json();if(!d.ok)throw new Error(d.error||'Request failed');return d;
+
+  const d=await res.json();
+if(!d.ok)throw new Error(d.error||'Request failed');
+return d;
+
 }
-
-
 
 /* =========================================================
    VERIFIED SELF REGISTRATION
@@ -147,6 +198,7 @@ async function openRegistration() {
     showLoading('Loading registration...');
 
     const info = await api('registrationInfo', {}, '');
+
     REGISTRATION_TYPE = 'CLUB';
 
     showModal(`
@@ -174,10 +226,13 @@ async function openRegistration() {
     `);
 
     renderRegistrationForm();
+
   } catch (error) {
     alert(error.message);
+
   } finally {
     hideLoading();
+
   }
 }
 
@@ -185,9 +240,11 @@ function switchRegistration(type) {
   REGISTRATION_TYPE = type;
 
   regClubTab.classList.toggle('active', type === 'CLUB');
+
   regZoneTab.classList.toggle('active', type === 'ZONE');
 
   renderRegistrationForm();
+
 }
 
 function renderRegistrationForm() {
@@ -229,17 +286,40 @@ function renderRegistrationForm() {
         Verify & Create Club Account
       </button>
     `;
+
   } else {
     registrationForm.innerHTML = `
       <div class="notice">
-        Zone select गर्न पाइँदैन। Lion ID verify भएपछि system ले Zone
-        automatically detect गर्छ।
+        Zone manually select गर्न पाइँदैन।
+        Member ID + Personal Email वा Mobile master data सँग match भएपछि
+        system ले Zone automatically detect गर्छ।
       </div>
 
       <div class="grid g2">
         <div class="field">
-          <label>Lion ID</label>
-          <input id="regLionId" inputmode="numeric">
+          <label>Member ID</label>
+          <input
+            id="regMemberId"
+            inputmode="numeric"
+          >
+        </div>
+
+        <div class="field">
+          <label>Personal Email</label>
+          <input
+            id="regPersonalEmail"
+            type="email"
+            placeholder="Email वा Mobile मध्ये कम्तीमा एउटा"
+          >
+        </div>
+
+        <div class="field">
+          <label>Mobile</label>
+          <input
+            id="regMobile"
+            inputmode="tel"
+            placeholder="Email वा Mobile मध्ये कम्तीमा एउटा"
+          >
         </div>
 
         <div class="field">
@@ -249,26 +329,38 @@ function renderRegistrationForm() {
 
         <div class="field">
           <label>Password</label>
-          <input id="regPassword" type="password">
+          <input
+            id="regPassword"
+            type="password"
+          >
         </div>
 
         <div class="field">
           <label>Confirm Password</label>
-          <input id="regConfirm" type="password">
+          <input
+            id="regConfirm"
+            type="password"
+          >
         </div>
       </div>
 
-      <button class="btn btn-primary" onclick="submitRegistration()">
-        Verify Lion ID & Create Zone Account
+      <button
+        class="btn btn-primary"
+        onclick="submitRegistration()"
+      >
+        Verify Member ID & Create Zone Account
       </button>
     `;
+
   }
 }
 
 async function submitRegistration() {
   if (regPassword.value !== regConfirm.value) {
     alert('Password and Confirm Password do not match.');
+
     return;
+
   }
 
   try {
@@ -283,12 +375,20 @@ async function submitRegistration() {
         username: regUsername.value.trim(),
         password: regPassword.value
       }, '');
+
     } else {
-      result = await api('registerZoneChairperson', {
-        lionId: regLionId.value.trim(),
-        username: regUsername.value.trim(),
-        password: regPassword.value
-      }, '');
+      result = await api(
+        'registerZoneChairperson',
+        {
+          memberId: regMemberId.value.trim(),
+          personalEmail: regPersonalEmail.value.trim(),
+          mobile: regMobile.value.trim(),
+          username: regUsername.value.trim(),
+          password: regPassword.value
+        },
+        ''
+      );
+
     }
 
     closeModal();
@@ -300,46 +400,115 @@ async function submitRegistration() {
         : '';
 
     alert(result.message + extra);
+
   } catch (error) {
     alert(error.message);
+
   } finally {
     hideLoading();
+
   }
 }
 
-
 async function login(){
-  try{showLoading('Logging in...');const d=await api('login',{username:username.value.trim(),password:password.value},'');TOKEN=d.token;USER=d.user;localStorage.setItem('ZR_TOKEN',TOKEN);enterApp()}
+  try{showLoading('Logging in...');
+const d=await api('login',{username:username.value.trim(),password:password.value},'');
+TOKEN=d.token;
+USER=d.user;
+localStorage.setItem('ZR_TOKEN',TOKEN);
+enterApp()}
   catch(e){notice('loginMsg',e.message,'error')}finally{hideLoading()}
 }
-async function logout(){try{if(TOKEN)await api('logout')}catch(e){}localStorage.removeItem('ZR_TOKEN');clearInterval(AUTO_SAVE_TIMER);location.reload()}
-async function restore(){if(!TOKEN)return;try{const d=await api('me');USER=d.user;enterApp()}catch(e){localStorage.removeItem('ZR_TOKEN')}}
+
+async function logout(){try{if(TOKEN)await api('logout')}catch(e){}localStorage.removeItem('ZR_TOKEN');
+clearInterval(AUTO_SAVE_TIMER);
+location.reload()}
+
+async function restore(){if(!TOKEN)return;
+try{const d=await api('me');
+USER=d.user;
+enterApp()}catch(e){localStorage.removeItem('ZR_TOKEN')}}
+
 function enterApp(){
-  loginView.classList.add('hide');appView.classList.remove('hide');logoutBtn.classList.remove('hide');userBadge.textContent=`${USER.displayName} • ${USER.role}`;
-  clubApp.classList.add('hide');zoneApp.classList.add('hide');adminApp.classList.add('hide');
-  if(USER.role==='CLUB'){clubApp.classList.remove('hide');renderClubShell();loadClubDashboard()}
-  else if(USER.role==='ZONE'){zoneApp.classList.remove('hide');renderZoneShell();loadZoneDashboard()}
-  else{adminApp.classList.remove('hide');renderAdminShell();loadAdminDashboard()}
+  loginView.classList.add('hide');
+appView.classList.remove('hide');
+logoutBtn.classList.remove('hide');
+userBadge.textContent=`${USER.displayName} • ${USER.role}`;
+
+  clubApp.classList.add('hide');
+zoneApp.classList.add('hide');
+adminApp.classList.add('hide');
+
+  if(USER.role==='CLUB'){clubApp.classList.remove('hide');
+renderClubShell();
+loadClubDashboard()}
+  else if(USER.role==='ZONE'){zoneApp.classList.remove('hide');
+renderZoneShell();
+loadZoneDashboard()}
+  else{adminApp.classList.remove('hide');
+renderAdminShell();
+loadAdminDashboard()}
 }
 
 /* CLUB */
 function renderClubShell(){clubApp.innerHTML=`<div class="tabs"><button class="tab active" onclick="clubTab('dashboard',this)">Dashboard</button><button class="tab" onclick="clubTab('report',this)">Report</button><button class="tab" onclick="clubTab('profile',this)">Club Profile</button></div><div id="clubDashboardTab"></div><div id="clubReportTab" class="hide"></div><div id="clubProfileTab" class="hide"></div>`}
-function clubTab(name,btn){document.querySelectorAll('#clubApp .tab').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');['Dashboard','Report','Profile'].forEach(x=>$('club'+x+'Tab').classList.add('hide'));$('club'+name[0].toUpperCase()+name.slice(1)+'Tab').classList.remove('hide')}
+
+function clubTab(name,btn){document.querySelectorAll('#clubApp .tab').forEach(x=>x.classList.remove('active'));
+if(btn)btn.classList.add('active');
+['Dashboard','Report','Profile'].forEach(x=>$('club'+x+'Tab').classList.add('hide'));
+$('club'+name[0].toUpperCase()+name.slice(1)+'Tab').classList.remove('hide')}
+
 async function loadClubDashboard(){
-  try{showLoading('Loading dashboard...');const d=await api('clubDashboard');CLUB=d.club;
+  try{showLoading('Loading dashboard...');
+const d=await api('clubDashboard');
+CLUB=d.club;
+
     clubDashboardTab.innerHTML=`<div class="grid g3"><div class="kpi"><span>Club</span><strong style="font-size:19px">${esc(CLUB?.ClubName||USER.clubId)}</strong><small>${esc(CLUB?.ZoneName||CLUB?.ZoneID||'')}</small></div><div class="kpi"><span>Report History</span><strong>${d.reports.length}</strong><small>Draft + Submitted</small></div><div class="kpi"><span>Current Month</span><strong style="font-size:22px">${currentMonth()}</strong></div></div>
     <div class="card" style="margin-top:14px"><div class="section-title"><h3>My Reports</h3><div class="spacer"></div><button class="btn btn-gold" onclick="startReport()">+ New Report</button></div><div class="table-wrap"><table><thead><tr><th>Month</th><th>Status</th><th>Members</th><th>Submitted</th><th>Action</th></tr></thead><tbody>${d.reports.map(r=>`<tr><td>${esc(r.ReportingMonth)}</td><td><span class="status st-${esc(r.Status)}">${esc(r.Status)}</span></td><td>${esc(r.TotalMembers||0)}</td><td>${esc(r.SubmittedAt||'-')}</td><td><div class="actions"><button class="btn btn-light" onclick="openReport('${esc(r.ReportID)}')">${['DRAFT','CORRECTION'].includes(r.Status)?'Edit':'View'}</button>${r.Status==='SUBMITTED'?`<button class="btn btn-light" onclick="printReportById('${esc(r.ReportID)}')">PDF / Print</button><button class="btn btn-light" onclick="askCorrection('${esc(r.ReportID)}')">Correction</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
+
     renderClubProfile();
+
   }catch(e){clubDashboardTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}
 }
+
 function renderClubProfile(){clubProfileTab.innerHTML=`<div class="card"><h3>Club Profile</h3><div class="grid g2"><div><div class="field"><label>Club Logo</label><input type="file" id="clubLogoFile" accept="image/*"></div>${CLUB?.ClubLogoURL?`<img class="logo-preview" src="${esc(CLUB.ClubLogoURL)}">`:''}</div><div></div><div class="field"><label>Club Name</label><input id="pfClubName" value="${esc(CLUB?.ClubName||'')}"></div><div class="field"><label>Charter Date</label><input id="pfCharterDate" type="date" value="${dateOnly(CLUB?.CharterDate)}"></div><div class="field"><label>President</label><input id="pfPresident" value="${esc(CLUB?.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="pfSecretary" value="${esc(CLUB?.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="pfEmail" value="${esc(CLUB?.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="pfPhone" value="${esc(CLUB?.ClubPhone||'')}"></div><div class="field"><label>Zone</label><input value="${esc(CLUB?.ZoneID||'')} — ${esc(CLUB?.ZoneName||'')}" disabled></div></div><div class="actions"><button class="btn btn-primary" onclick="saveClubProfile()">Save Profile</button><button class="btn btn-light" onclick="uploadClubLogo()">Upload Logo</button></div></div>`}
-async function saveClubProfile(){try{showLoading('Saving profile...');await api('saveClubProfile',{ClubName:pfClubName.value,CharterDate:pfCharterDate.value,PresidentName:pfPresident.value,SecretaryName:pfSecretary.value,ClubEmail:pfEmail.value,ClubPhone:pfPhone.value});await loadClubDashboard();alert('Profile saved')}catch(e){alert(e.message)}finally{hideLoading()}}
-async function uploadClubLogo(){const f=clubLogoFile.files[0];if(!f)return alert('Select logo first');try{showLoading('Uploading logo...');await api('saveClubLogo',{dataUrl:await fileData(f)});await loadClubDashboard();alert('Logo saved')}catch(e){alert(e.message)}finally{hideLoading()}}
-async function startReport(){const m=prompt('Reporting Month (YYYY-MM)',currentMonth());if(!m)return;try{showLoading('Opening report...');const d=await api('getOrCreateDraft',{reportingMonth:m});loadReportIntoForm(d.report);clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
-async function openReport(id){try{showLoading('Loading report...');const d=await api('getReport',{reportId:id});loadReportIntoForm(d.report);clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
-function loadReportIntoForm(r){CURRENT_REPORT=r;SERVICES=(r.services||[]).map(x=>({...x,photos:[]}));CONTRIBUTIONS=r.contributions||[];PROGRAMS=r.programs||[];BLOOD=r.blood||[];FUTURE=r.futurePlans||[];renderReportForm();startAutoSave()}
+
+async function saveClubProfile(){try{showLoading('Saving profile...');
+await api('saveClubProfile',{ClubName:pfClubName.value,CharterDate:pfCharterDate.value,PresidentName:pfPresident.value,SecretaryName:pfSecretary.value,ClubEmail:pfEmail.value,ClubPhone:pfPhone.value});
+await loadClubDashboard();
+alert('Profile saved')}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function uploadClubLogo(){const f=clubLogoFile.files[0];
+if(!f)return alert('Select logo first');
+try{showLoading('Uploading logo...');
+await api('saveClubLogo',{dataUrl:await fileData(f)});
+await loadClubDashboard();
+alert('Logo saved')}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function startReport(){const m=prompt('Reporting Month (YYYY-MM)',currentMonth());
+if(!m)return;
+try{showLoading('Opening report...');
+const d=await api('getOrCreateDraft',{reportingMonth:m});
+loadReportIntoForm(d.report);
+clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function openReport(id){try{showLoading('Loading report...');
+const d=await api('getReport',{reportId:id});
+loadReportIntoForm(d.report);
+clubTab('report',document.querySelectorAll('#clubApp .tab')[1])}catch(e){alert(e.message)}finally{hideLoading()}}
+
+function loadReportIntoForm(r){CURRENT_REPORT=r;
+SERVICES=(r.services||[]).map(x=>({...x,photos:[]}));
+CONTRIBUTIONS=r.contributions||[];
+PROGRAMS=r.programs||[];
+BLOOD=r.blood||[];
+FUTURE=r.futurePlans||[];
+renderReportForm();
+startAutoSave()}
+
 function renderReportForm(){
   const r=CURRENT_REPORT.master,locked=r.Status==='SUBMITTED';
+
   clubReportTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Report – ${esc(r.ReportingMonth)}</h2><div class="spacer"></div><span class="status st-${esc(r.Status)}">${esc(r.Status)}</span></div>${locked?`<div class="notice">Final Submitted report lock भएको छ। Correction approval भएपछि मात्र edit गर्न मिल्छ।</div>`:`<div class="notice ok">Draft mode: form 60 seconds मा auto-save हुन्छ।</div>`}
   <div class="section"><h3>Membership Details</h3><div class="grid g4">${fnum('Opening Member','rmOpening',r.OpeningMembers,locked)}${fnum('Add Member','rmAdded',r.AddedMembers,locked)}${fnum('Drop Member','rmDropped',r.DroppedMembers,locked)}${fnum('Total Member','rmTotal',r.TotalMembers,true)}${fnum('Total Male','rmMale',r.MaleMembers,locked)}${fnum('Total Female','rmFemale',r.FemaleMembers,locked)}${ftext('Period Start','rmStart',dateOnly(r.PeriodStart),'date',locked)}${ftext('Period End','rmEnd',dateOnly(r.PeriodEnd),'date',locked)}</div><div id="memberCheck" class="notice"></div></div>
   <div class="section"><h3>Club Dues / Reporting / Participation</h3><div class="grid g3">${fselect('International Dues','rmInternational',r.InternationalDues,['','Clear','Pending','Not Applicable'],locked)}${fselect('District Dues','rmDistrict',r.DistrictDues,['','Clear','Pending','Not Applicable'],locked)}${fselect('Portal Reporting','rmPortal',r.PortalReporting,['','Reported','Pending'],locked)}${fselect('Zone Meeting','rmZoneMeeting',r.ZoneMeeting,['','Participated','Not Participated'],locked)}${fselect('District Program','rmDistrictProgram',r.DistrictProgram,['','Participated','Not Participated'],locked)}</div></div>
@@ -350,36 +519,109 @@ function renderReportForm(){
   <div class="section"><div class="section-title"><h3>Future Plan</h3><div class="spacer"></div>${!locked?`<button class="btn btn-light" onclick="addFuture()">+ Add Future Plan</button>`:''}</div><div id="futureWrap"></div></div>
   <div class="field"><label>Notes / Additional Information</label><textarea id="rmNotes" ${locked?'disabled':''}>${esc(r.Notes||'')}</textarea></div>
   <div class="actions">${!locked?`<button class="btn btn-primary" onclick="saveDraft(false)">Save Draft</button><button class="btn btn-gold" onclick="finalSubmit()">Final Submit to Zone</button>`:''}<button class="btn btn-light" onclick="previewPrint()">Preview / PDF / Print</button></div></div>`;
+
   ['rmOpening','rmAdded','rmDropped','rmMale','rmFemale'].forEach(id=>$(id)?.addEventListener('input',membershipCalc));
-  renderServices(locked);renderContrib(locked);renderPrograms(locked);renderBlood(locked);renderFuture(locked);membershipCalc();
+
+  renderServices(locked);
+renderContrib(locked);
+renderPrograms(locked);
+renderBlood(locked);
+renderFuture(locked);
+membershipCalc();
+
 }
+
 function fnum(l,id,v,d){return `<div class="field"><label>${l}</label><input id="${id}" type="number" min="0" value="${esc(v??0)}" ${d?'disabled':''}></div>`}
+
 function ftext(l,id,v,t='text',d=false){return `<div class="field"><label>${l}</label><input id="${id}" type="${t}" value="${esc(v??'')}" ${d?'disabled':''}></div>`}
+
 function fselect(l,id,v,a,d){return `<div class="field"><label>${l}</label><select id="${id}" ${d?'disabled':''}>${a.map(x=>`<option ${String(x)===String(v)?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`}
-function membershipCalc(){if(!$('rmOpening'))return;const total=num(rmOpening.value)+num(rmAdded.value)-num(rmDropped.value),mf=num(rmMale.value)+num(rmFemale.value);rmTotal.value=total;memberCheck.className='notice '+(mf===total?'ok':'error');memberCheck.textContent=`Total = ${total} | Male + Female = ${mf} ${mf===total?'✓':'— Final Submit अघि मिलाउनुहोस्'}`}
-function addService(){SERVICES.push({Title:'',ServiceDate:'',Category:'',Description:'',Beneficiaries:0,Units:0,ServiceHours:0,Amount:0,Photo1URL:'',Photo2URL:'',photos:[]});renderServices(false)}
-function removeService(i){SERVICES.splice(i,1);renderServices(false)}
+
+function membershipCalc(){if(!$('rmOpening'))return;
+const total=num(rmOpening.value)+num(rmAdded.value)-num(rmDropped.value),mf=num(rmMale.value)+num(rmFemale.value);
+rmTotal.value=total;
+memberCheck.className='notice '+(mf===total?'ok':'error');
+memberCheck.textContent=`Total = ${total} | Male + Female = ${mf} ${mf===total?'✓':'— Final Submit अघि मिलाउनुहोस्'}`}
+
+function addService(){SERVICES.push({Title:'',ServiceDate:'',Category:'',Description:'',Beneficiaries:0,Units:0,ServiceHours:0,Amount:0,Photo1URL:'',Photo2URL:'',photos:[]});
+renderServices(false)}
+
+function removeService(i){SERVICES.splice(i,1);
+renderServices(false)}
+
 function renderServices(lock){servicesWrap.innerHTML=SERVICES.length?SERVICES.map((s,i)=>`<div class="service-card"><div class="service-head"><strong>Service #${i+1}</strong><div class="spacer"></div>${!lock?`<button class="btn btn-danger" onclick="removeService(${i})">Delete</button>`:''}</div><div class="grid g4">${sv(i,'Title','Service Title',s.Title,lock)}${sv(i,'ServiceDate','Date',dateOnly(s.ServiceDate),lock,'date')}${sv(i,'Category','Category',s.Category,lock)}${sv(i,'Beneficiaries','Beneficiaries',s.Beneficiaries,lock,'number')}${sv(i,'Units','Units',s.Units,lock,'number')}${sv(i,'ServiceHours','Service Hours',s.ServiceHours,lock,'number')}${sv(i,'Amount','Amount',s.Amount,lock,'number')}</div><div class="field"><label>Description</label><textarea ${lock?'disabled':''} maxlength="1000" oninput="SERVICES[${i}].Description=this.value">${esc(s.Description||'')}</textarea></div><div class="photo-row"><div><div class="field"><label>Photo 1</label>${lock?'':`<input type="file" accept="image/*" onchange="setServicePhoto(${i},0,this)">`}</div><div class="photo-preview">${s.Photo1URL?`<img src="${esc(s.Photo1URL)}">`:'Photo 1'}</div></div><div><div class="field"><label>Photo 2 (Optional)</label>${lock?'':`<input type="file" accept="image/*" onchange="setServicePhoto(${i},1,this)">`}</div><div class="photo-preview">${s.Photo2URL?`<img src="${esc(s.Photo2URL)}">`:'Photo 2'}</div></div></div></div>`).join(''):`<div class="muted">No service added yet.</div>`}
+
 function sv(i,k,l,v,d,t='text'){return `<div class="field"><label>${l}</label><input type="${t}" value="${esc(v??'')}" ${d?'disabled':''} oninput="SERVICES[${i}].${k}=this.value"></div>`}
-async function setServicePhoto(i,slot,input){const f=input.files[0];if(!f)return;const d=await fileData(f);SERVICES[i].photos=SERVICES[i].photos||[];SERVICES[i].photos[slot]=d;if(slot===0)SERVICES[i].Photo1URL=d;else SERVICES[i].Photo2URL=d;renderServices(false)}
-function addContribution(){CONTRIBUTIONS.push({Type:'',ContributionDate:'',Amount:0,Currency:'NPR',Remarks:''});renderContrib(false)}
+
+async function setServicePhoto(i,slot,input){const f=input.files[0];
+if(!f)return;
+const d=await fileData(f);
+SERVICES[i].photos=SERVICES[i].photos||[];
+SERVICES[i].photos[slot]=d;
+if(slot===0)SERVICES[i].Photo1URL=d;
+else SERVICES[i].Photo2URL=d;
+renderServices(false)}
+
+function addContribution(){CONTRIBUTIONS.push({Type:'',ContributionDate:'',Amount:0,Currency:'NPR',Remarks:''});
+renderContrib(false)}
+
 function renderContrib(lock){contribWrap.innerHTML=CONTRIBUTIONS.length?CONTRIBUTIONS.map((x,i)=>`<div class="service-card grid g4">${mini('CONTRIBUTIONS',i,'Type','Contribution Type',x.Type,lock)}${mini('CONTRIBUTIONS',i,'ContributionDate','Date',dateOnly(x.ContributionDate),lock,'date')}${mini('CONTRIBUTIONS',i,'Amount','Amount',x.Amount,lock,'number')}${mini('CONTRIBUTIONS',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="CONTRIBUTIONS.splice(${i},1);renderContrib(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No contribution added.</div>`}
-function addProgram(){PROGRAMS.push({Level:'Club Level',Title:'',ProgramDate:'',Remarks:''});renderPrograms(false)}
+
+function addProgram(){PROGRAMS.push({Level:'Club Level',Title:'',ProgramDate:'',Remarks:''});
+renderPrograms(false)}
+
 function renderPrograms(lock){programWrap.innerHTML=PROGRAMS.length?PROGRAMS.map((x,i)=>`<div class="service-card grid g4">${mini('PROGRAMS',i,'Level','Level',x.Level,lock)}${mini('PROGRAMS',i,'Title','Program Title',x.Title,lock)}${mini('PROGRAMS',i,'ProgramDate','Date',dateOnly(x.ProgramDate),lock,'date')}${mini('PROGRAMS',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="PROGRAMS.splice(${i},1);renderPrograms(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No participated program added.</div>`}
-function addBlood(){BLOOD.push({DonorName:'',BloodGroup:'',Units:1,Contact:'',Remarks:''});renderBlood(false)}
+
+function addBlood(){BLOOD.push({DonorName:'',BloodGroup:'',Units:1,Contact:'',Remarks:''});
+renderBlood(false)}
+
 function renderBlood(lock){bloodWrap.innerHTML=BLOOD.length?BLOOD.map((x,i)=>`<div class="service-card grid g4">${mini('BLOOD',i,'DonorName','Donor / Record Name',x.DonorName,lock)}${mini('BLOOD',i,'BloodGroup','Blood Group',x.BloodGroup,lock)}${mini('BLOOD',i,'Units','Units',x.Units,lock,'number')}${mini('BLOOD',i,'Contact','Contact',x.Contact,lock)}${mini('BLOOD',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="BLOOD.splice(${i},1);renderBlood(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No blood information added.</div>`}
-function addFuture(){FUTURE.push({Title:'',TentativeDate:'',Remarks:''});renderFuture(false)}
+
+function addFuture(){FUTURE.push({Title:'',TentativeDate:'',Remarks:''});
+renderFuture(false)}
+
 function renderFuture(lock){futureWrap.innerHTML=FUTURE.length?FUTURE.map((x,i)=>`<div class="service-card grid g3">${mini('FUTURE',i,'Title','Future Plan',x.Title,lock)}${mini('FUTURE',i,'TentativeDate','Tentative Date',dateOnly(x.TentativeDate),lock,'date')}${mini('FUTURE',i,'Remarks','Remarks',x.Remarks,lock)}${!lock?`<button class="btn btn-danger" onclick="FUTURE.splice(${i},1);renderFuture(false)">Delete</button>`:''}</div>`).join(''):`<div class="muted">No future plan added.</div>`}
+
 function mini(arr,i,k,l,v,d,t='text'){return `<div class="field"><label>${l}</label><input type="${t}" value="${esc(v??'')}" ${d?'disabled':''} oninput="${arr}[${i}].${k}=this.value"></div>`}
+
 function collectPayload(){return{reportId:CURRENT_REPORT.master.ReportID,master:{periodStart:rmStart.value,periodEnd:rmEnd.value,openingMembers:rmOpening.value,addedMembers:rmAdded.value,droppedMembers:rmDropped.value,maleMembers:rmMale.value,femaleMembers:rmFemale.value,internationalDues:rmInternational.value,districtDues:rmDistrict.value,portalReporting:rmPortal.value,zoneMeeting:rmZoneMeeting.value,districtProgram:rmDistrictProgram.value,notes:rmNotes.value},services:SERVICES,contributions:CONTRIBUTIONS,programs:PROGRAMS,blood:BLOOD,futurePlans:FUTURE}}
-async function saveDraft(silent=false){if(!CURRENT_REPORT||CURRENT_REPORT.master.Status==='SUBMITTED')return;try{if(!silent)showLoading('Saving draft...');const d=await api('saveDraft',collectPayload());CURRENT_REPORT=d.report;if(!silent){loadReportIntoForm(d.report);alert('Draft saved')}}catch(e){if(!silent)alert(e.message)}finally{if(!silent)hideLoading()}}
-function startAutoSave(){clearInterval(AUTO_SAVE_TIMER);if(CURRENT_REPORT&&CURRENT_REPORT.master.Status!=='SUBMITTED')AUTO_SAVE_TIMER=setInterval(()=>saveDraft(true),60000)}
-async function finalSubmit(){membershipCalc();if(num(rmMale.value)+num(rmFemale.value)!==num(rmTotal.value))return alert('Male + Female must equal Total Members.');if(!confirm('Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?'))return;try{showLoading('Submitting to Zone...');const d=await api('submitFinal',collectPayload());CURRENT_REPORT=d.report;loadReportIntoForm(d.report);await loadClubDashboard();alert('Final report submitted to Zone Chairperson.')}catch(e){alert(e.message)}finally{hideLoading()}}
-async function askCorrection(reportId){const reason=prompt('Correction reason');if(!reason)return;try{await api('requestCorrection',{reportId,reason});alert('Correction request sent to Zone Chairperson.')}catch(e){alert(e.message)}}
-async function printReportById(id){try{showLoading('Preparing PDF...');const d=await api('getReport',{reportId:id});buildPrint(d.report);window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
-function previewPrint(){buildPrint(CURRENT_REPORT);window.print()}
+
+async function saveDraft(silent=false){if(!CURRENT_REPORT||CURRENT_REPORT.master.Status==='SUBMITTED')return;
+try{if(!silent)showLoading('Saving draft...');
+const d=await api('saveDraft',collectPayload());
+CURRENT_REPORT=d.report;
+if(!silent){loadReportIntoForm(d.report);
+alert('Draft saved')}}catch(e){if(!silent)alert(e.message)}finally{if(!silent)hideLoading()}}
+
+function startAutoSave(){clearInterval(AUTO_SAVE_TIMER);
+if(CURRENT_REPORT&&CURRENT_REPORT.master.Status!=='SUBMITTED')AUTO_SAVE_TIMER=setInterval(()=>saveDraft(true),60000)}
+
+async function finalSubmit(){membershipCalc();
+if(num(rmMale.value)+num(rmFemale.value)!==num(rmTotal.value))return alert('Male + Female must equal Total Members.');
+if(!confirm('Final Submit गरेपछि report lock हुन्छ र Zone Chairperson लाई official report जान्छ। Continue?'))return;
+try{showLoading('Submitting to Zone...');
+const d=await api('submitFinal',collectPayload());
+CURRENT_REPORT=d.report;
+loadReportIntoForm(d.report);
+await loadClubDashboard();
+alert('Final report submitted to Zone Chairperson.')}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function askCorrection(reportId){const reason=prompt('Correction reason');
+if(!reason)return;
+try{await api('requestCorrection',{reportId,reason});
+alert('Correction request sent to Zone Chairperson.')}catch(e){alert(e.message)}}
+
+async function printReportById(id){try{showLoading('Preparing PDF...');
+const d=await api('getReport',{reportId:id});
+buildPrint(d.report);
+window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+function previewPrint(){buildPrint(CURRENT_REPORT);
+window.print()}
+
 function buildPrint(report){
   const r=report.master,c=report.club||{},services=report.services||SERVICES,contrib=report.contributions||CONTRIBUTIONS,programs=report.programs||PROGRAMS,blood=report.blood||BLOOD,future=report.futurePlans||FUTURE;
+
   printArea.innerHTML=`<section class="p-cover">${c.ClubLogoURL?`<img class="p-logo" src="${esc(c.ClubLogoURL)}">`:''}<h1>${esc(r.ClubNameSnapshot||c.ClubName||'Lions Club')}</h1><h2>CLUB MONTHLY / PERIODIC REPORT</h2><p>${esc(r.PeriodStart)} to ${esc(r.PeriodEnd)}</p><p><b>Zone:</b> ${esc(r.ZoneID)} &nbsp; | &nbsp; <b>Zone Chairperson:</b> ${esc(r.ZoneChairpersonSnapshot||'')}</p><div style="margin-top:24mm"><b>President:</b> ${esc(r.PresidentSnapshot||'')}<br><b>Secretary:</b> ${esc(r.SecretarySnapshot||'')}</div></section>
   <section class="p-page"><h2 class="p-head">Club & Membership Details</h2><table class="p-table"><tr><th>Charter Date</th><th>Opening</th><th>Add</th><th>Drop</th><th>Total</th><th>Male</th><th>Female</th><th>Net</th></tr><tr><td>${esc(r.CharterDateSnapshot)}</td><td>${r.OpeningMembers}</td><td>${r.AddedMembers}</td><td>${r.DroppedMembers}</td><td>${r.TotalMembers}</td><td>${r.MaleMembers}</td><td>${r.FemaleMembers}</td><td>${r.NetGrowth}</td></tr></table>
   <h2 class="p-head" style="margin-top:8mm">Club Dues / Reporting / Participation</h2><table class="p-table"><tr><th>International Dues</th><th>District Dues</th><th>Portal Reporting</th><th>Zone Meeting</th><th>District Program</th></tr><tr><td>${esc(r.InternationalDues)}</td><td>${esc(r.DistrictDues)}</td><td>${esc(r.PortalReporting)}</td><td>${esc(r.ZoneMeeting)}</td><td>${esc(r.DistrictProgram)}</td></tr></table>
@@ -389,37 +631,620 @@ function buildPrint(report){
   <section><h2 class="p-head">Blood Donation / Blood Information</h2>${blood.length?`<table class="p-table"><tr><th>S.N.</th><th>Name / Record</th><th>Blood Group</th><th>Units</th><th>Contact</th><th>Remarks</th></tr>${blood.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.DonorName)}</td><td>${esc(x.BloodGroup)}</td><td>${esc(x.Units)}</td><td>${esc(x.Contact)}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:`<p class="p-small">No blood information reported.</p>`}
   <h2 class="p-head" style="margin-top:9mm">Future Plan</h2>${future.length?`<table class="p-table"><tr><th>S.N.</th><th>Plan</th><th>Tentative Date</th><th>Remarks</th></tr>${future.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.Title)}</td><td>${esc(dateOnly(x.TentativeDate))}</td><td>${esc(x.Remarks||'')}</td></tr>`).join('')}</table>`:`<p class="p-small">No future plan entered.</p>`}
   ${r.Notes?`<h2 class="p-head" style="margin-top:9mm">Notes</h2><p class="p-small">${esc(r.Notes)}</p>`:''}<div class="p-sign"><div>President<br>${esc(r.PresidentSnapshot||'')}</div><div>Secretary<br>${esc(r.SecretarySnapshot||'')}</div></div><div class="p-footer">Generated by Lions Club Digital Reporting & Zone Reporting System</div></section>`;
+
 }
 
 /* ZONE */
 function renderZoneShell(){zoneApp.innerHTML=`<div class="tabs"><button class="tab active" onclick="zoneTab('dash',this)">My Zone</button><button class="tab" onclick="zoneTab('correction',this)">Correction Requests</button></div><div id="zoneDashTab"></div><div id="zoneCorrectionTab" class="hide"></div>`}
-function zoneTab(name,btn){document.querySelectorAll('#zoneApp .tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');zoneDashTab.classList.add('hide');zoneCorrectionTab.classList.add('hide');if(name==='dash'){zoneDashTab.classList.remove('hide')}else{zoneCorrectionTab.classList.remove('hide');loadZoneCorrections()}}
-async function loadZoneDashboard(){zoneDashTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone Chairperson Dashboard</h2></div><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="zoneMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="zoneLoad()">Load</button></div><div id="zoneContent"></div></div>`;await zoneLoad()}
-async function zoneLoad(){try{showLoading('Loading Zone reports...');const d=await api('zoneDashboard',{reportingMonth:zoneMonth.value});zoneContent.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.summary.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.summary.submitted}</strong></div><div class="kpi"><span>Pending / Draft</span><strong>${d.summary.pending+d.summary.draft}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.summary.totalServices}</strong><small>Final only</small></div></div><div class="card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr><th>Club</th><th>Status</th><th>Members</th><th>Services</th><th>Contribution</th><th>Action</th></tr></thead><tbody>${d.clubs.map(c=>`<tr><td>${esc(c.clubName)}</td><td><span class="status st-${esc(c.status)}">${esc(c.status)}</span></td><td>${c.totalMembers}</td><td>${c.serviceCount}</td><td>${money(c.contributionTotal)}</td><td>${c.status==='SUBMITTED'?`<div class="actions"><button class="btn btn-light" onclick="zoneViewReport('${esc(c.reportId)}')">View / PDF</button><button class="btn btn-ok" onclick="markReviewed('${esc(c.reportId)}')">Mark Reviewed</button></div>`:'-'}</td></tr>`).join('')}</tbody></table></div></div>`}catch(e){zoneContent.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
-async function zoneViewReport(id){try{showLoading('Loading report...');const d=await api('zoneGetClubReport',{reportId:id});buildPrint(d.report);window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
-async function markReviewed(id){try{await api('zoneSetReviewStatus',{reportId:id,status:'REVIEWED'});alert('Marked as reviewed');zoneLoad()}catch(e){alert(e.message)}}
-async function loadZoneCorrections(){try{showLoading('Loading correction requests...');const d=await api('zoneCorrectionRequests');zoneCorrectionTab.innerHTML=`<div class="card"><h2>Correction Requests</h2>${d.requests.length?`<div class="table-wrap"><table><tr><th>Club</th><th>Month</th><th>Reason</th><th>Requested</th><th>Action</th></tr>${d.requests.map(q=>`<tr><td>${esc(q.ClubName)}</td><td>${esc(q.ReportingMonth)}</td><td>${esc(q.Reason)}</td><td>${esc(q.CreatedAt)}</td><td><div class="actions"><button class="btn btn-ok" onclick="decideCorrection('${esc(q.RequestID)}','APPROVE')">Approve</button><button class="btn btn-danger" onclick="decideCorrection('${esc(q.RequestID)}','DENY')">Deny</button></div></td></tr>`).join('')}</table></div>`:`<div class="notice ok">No pending correction request.</div>`}</div>`}catch(e){zoneCorrectionTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
-async function decideCorrection(id,d){if(!confirm(d+' correction request?'))return;try{await api('zoneCorrectionDecision',{requestId:id,decision:d});loadZoneCorrections()}catch(e){alert(e.message)}}
+
+function zoneTab(name,btn){document.querySelectorAll('#zoneApp .tab').forEach(x=>x.classList.remove('active'));
+btn.classList.add('active');
+zoneDashTab.classList.add('hide');
+zoneCorrectionTab.classList.add('hide');
+if(name==='dash'){zoneDashTab.classList.remove('hide')}else{zoneCorrectionTab.classList.remove('hide');
+loadZoneCorrections()}}
+
+async function loadZoneDashboard(){zoneDashTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone Chairperson Dashboard</h2></div><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="zoneMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="zoneLoad()">Load</button></div><div id="zoneContent"></div></div>`;
+await zoneLoad()}
+
+async function zoneLoad(){try{showLoading('Loading Zone reports...');
+const d=await api('zoneDashboard',{reportingMonth:zoneMonth.value});
+zoneContent.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.summary.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.summary.submitted}</strong></div><div class="kpi"><span>Pending / Draft</span><strong>${d.summary.pending+d.summary.draft}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.summary.totalServices}</strong><small>Final only</small></div></div><div class="card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr><th>Club</th><th>Status</th><th>Members</th><th>Services</th><th>Contribution</th><th>Action</th></tr></thead><tbody>${d.clubs.map(c=>`<tr><td>${esc(c.clubName)}</td><td><span class="status st-${esc(c.status)}">${esc(c.status)}</span></td><td>${c.totalMembers}</td><td>${c.serviceCount}</td><td>${money(c.contributionTotal)}</td><td>${c.status==='SUBMITTED'?`<div class="actions"><button class="btn btn-light" onclick="zoneViewReport('${esc(c.reportId)}')">View / PDF</button><button class="btn btn-ok" onclick="markReviewed('${esc(c.reportId)}')">Mark Reviewed</button></div>`:'-'}</td></tr>`).join('')}</tbody></table></div></div>`}catch(e){zoneContent.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+
+async function zoneViewReport(id){try{showLoading('Loading report...');
+const d=await api('zoneGetClubReport',{reportId:id});
+buildPrint(d.report);
+window.print()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function markReviewed(id){try{await api('zoneSetReviewStatus',{reportId:id,status:'REVIEWED'});
+alert('Marked as reviewed');
+zoneLoad()}catch(e){alert(e.message)}}
+
+async function loadZoneCorrections(){try{showLoading('Loading correction requests...');
+const d=await api('zoneCorrectionRequests');
+zoneCorrectionTab.innerHTML=`<div class="card"><h2>Correction Requests</h2>${d.requests.length?`<div class="table-wrap"><table><tr><th>Club</th><th>Month</th><th>Reason</th><th>Requested</th><th>Action</th></tr>${d.requests.map(q=>`<tr><td>${esc(q.ClubName)}</td><td>${esc(q.ReportingMonth)}</td><td>${esc(q.Reason)}</td><td>${esc(q.CreatedAt)}</td><td><div class="actions"><button class="btn btn-ok" onclick="decideCorrection('${esc(q.RequestID)}','APPROVE')">Approve</button><button class="btn btn-danger" onclick="decideCorrection('${esc(q.RequestID)}','DENY')">Deny</button></div></td></tr>`).join('')}</table></div>`:`<div class="notice ok">No pending correction request.</div>`}</div>`}catch(e){zoneCorrectionTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+
+async function decideCorrection(id,d){if(!confirm(d+' correction request?'))return;
+try{await api('zoneCorrectionDecision',{requestId:id,decision:d});
+loadZoneCorrections()}catch(e){alert(e.message)}}
 
 /* ADMIN */
-function renderAdminShell(){adminApp.innerHTML=`<div class="tabs"><button class="tab active" onclick="adminTab('dashboard',this)">Dashboard</button><button class="tab" onclick="adminTab('users',this)">Users</button><button class="tab" onclick="adminTab('clubs',this)">Clubs</button><button class="tab" onclick="adminTab('mapping',this)">Zone Mapping</button></div><div id="adminDashboardTab"></div><div id="adminUsersTab" class="hide"></div><div id="adminClubsTab" class="hide"></div><div id="adminMappingTab" class="hide"></div>`}
-function adminTab(name,btn){document.querySelectorAll('#adminApp .tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');['Dashboard','Users','Clubs','Mapping'].forEach(x=>$('admin'+x+'Tab').classList.add('hide'));$('admin'+name[0].toUpperCase()+name.slice(1)+'Tab').classList.remove('hide');if(name==='users')loadAdminUsers();if(name==='clubs')loadAdminClubs();if(name==='mapping')loadAdminMappings()}
-async function loadAdminDashboard(){adminDashboardTab.innerHTML=`<div class="card"><h2>District Admin Dashboard</h2><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="adminMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="adminDashLoad()">Load</button></div><div id="adminStats"></div></div>`;await adminDashLoad()}
-async function adminDashLoad(){try{showLoading('Loading District data...');const d=await api('adminDashboard',{reportingMonth:adminMonth.value});adminStats.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.submitted}</strong></div><div class="kpi"><span>Pending</span><strong>${d.pending}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.totalServices}</strong></div></div>`}catch(e){adminStats.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
-async function loadAdminUsers(){try{showLoading('Loading users...');const d=await api('adminListUsers');adminUsersTab.innerHTML=`<div class="card"><div class="section-title"><h2>User Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openCreateUser()">+ Create User</button></div><div class="table-wrap"><table><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Club</th><th>Zone</th><th>Status</th><th>Action</th></tr>${d.users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${esc(u.role)}</td><td>${esc(u.clubId||'-')}</td><td>${esc(u.zoneId||'-')}</td><td>${u.active?'Active':'Inactive'}</td><td><div class="actions"><button class="btn ${u.active?'btn-danger':'btn-ok'}" onclick="setUserActive('${esc(u.userId)}',${!u.active})">${u.active?'Deactivate':'Activate'}</button><button class="btn btn-light" onclick="resetPassword('${esc(u.userId)}','${esc(u.username)}')">Reset Password</button></div></td></tr>`).join('')}</table></div></div>`}catch(e){adminUsersTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
-function openCreateUser(){showModal(`<div class="row"><h2>Create User</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Username</label><input id="cuUsername"></div><div class="field"><label>Password</label><input id="cuPassword" type="password"></div><div class="field"><label>Display Name</label><input id="cuDisplay"></div><div class="field"><label>Role</label><select id="cuRole" onchange="toggleUserRoleFields()"><option>CLUB</option><option>ZONE</option><option>ADMIN</option></select></div><div class="field" id="cuClubWrap"><label>Club ID</label><input id="cuClub"></div><div class="field" id="cuZoneWrap"><label>Zone ID</label><input id="cuZone"></div></div><button class="btn btn-primary" onclick="createUserNow()">Create User</button>`);toggleUserRoleFields()}
-function toggleUserRoleFields(){const role=cuRole.value;cuClubWrap.classList.toggle('hide',role!=='CLUB');cuZoneWrap.classList.toggle('hide',role==='ADMIN')}
-async function createUserNow(){try{showLoading('Creating user...');await api('adminCreateUser',{username:cuUsername.value,password:cuPassword.value,displayName:cuDisplay.value,role:cuRole.value,clubId:cuRole.value==='CLUB'?cuClub.value:'',zoneId:cuRole.value==='ADMIN'?'':cuZone.value});closeModal();await loadAdminUsers();alert('User created')}catch(e){alert(e.message)}finally{hideLoading()}}
-async function setUserActive(id,active){if(!confirm((active?'Activate':'Deactivate')+' this user?'))return;try{await api('adminSetUserActive',{userId:id,active});loadAdminUsers()}catch(e){alert(e.message)}}
-async function resetPassword(id,name){const p=prompt('New password for '+name+' (minimum 8 characters)');if(!p)return;try{await api('adminResetPassword',{userId:id,password:p});alert('Password reset')}catch(e){alert(e.message)}}
-async function loadAdminClubs(){try{showLoading('Loading clubs...');const d=await api('adminListClubs');adminClubsTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openClubForm()">+ Add Club</button></div><div class="table-wrap"><table><tr><th>Club ID</th><th>Club Name</th><th>Zone</th><th>President</th><th>Secretary</th><th>Status</th><th>Action</th></tr>${d.clubs.map(c=>`<tr><td>${esc(c.ClubID)}</td><td>${esc(c.ClubName)}</td><td>${esc(c.ZoneID)} ${esc(c.ZoneName||'')}</td><td>${esc(c.PresidentName||'')}</td><td>${esc(c.SecretaryName||'')}</td><td>${esc(c.Active)}</td><td><button class="btn btn-light" onclick='openClubForm(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminClubsTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+function renderAdminShell() {
+  adminApp.innerHTML = `
+    <div class="tabs">
+      <button class="tab active" onclick="adminTab('dashboard', this)">
+        Dashboard
+      </button>
+
+      <button class="tab" onclick="adminTab('users', this)">
+        Users
+      </button>
+
+      <button class="tab" onclick="adminTab('clubs', this)">
+        Clubs
+      </button>
+
+      <button class="tab" onclick="adminTab('zonechairs', this)">
+        Zone Chairpersons
+      </button>
+
+      <button class="tab" onclick="adminTab('mapping', this)">
+        Zone Mapping
+      </button>
+    </div>
+
+    <div id="adminDashboardTab"></div>
+    <div id="adminUsersTab" class="hide"></div>
+    <div id="adminClubsTab" class="hide"></div>
+    <div id="adminZonechairsTab" class="hide"></div>
+    <div id="adminMappingTab" class="hide"></div>
+  `;
+
+}
+
+function adminTab(name, button) {
+  document
+    .querySelectorAll('#adminApp .tab')
+    .forEach(tab => tab.classList.remove('active'));
+
+  button.classList.add('active');
+
+  [
+    'Dashboard',
+    'Users',
+    'Clubs',
+    'Zonechairs',
+    'Mapping'
+  ].forEach(section => {
+    $('admin' + section + 'Tab').classList.add('hide');
+
+  });
+
+  $(
+    'admin' +
+    name[0].toUpperCase() +
+    name.slice(1) +
+    'Tab'
+  ).classList.remove('hide');
+
+  if (name === 'users') {
+    loadAdminUsers();
+
+  }
+
+  if (name === 'clubs') {
+    loadAdminClubs();
+
+  }
+
+  if (name === 'zonechairs') {
+    loadAdminZoneChairpersons();
+
+  }
+
+  if (name === 'mapping') {
+    loadAdminMappings();
+
+  }
+}
+
+async function loadAdminDashboard(){adminDashboardTab.innerHTML=`<div class="card"><h2>District Admin Dashboard</h2><div class="toolbar"><div class="field"><label>Reporting Month</label><input id="adminMonth" type="month" value="${currentMonth()}"></div><button class="btn btn-primary" onclick="adminDashLoad()">Load</button></div><div id="adminStats"></div></div>`;
+await adminDashLoad()}
+
+async function adminDashLoad(){try{showLoading('Loading District data...');
+const d=await api('adminDashboard',{reportingMonth:adminMonth.value});
+adminStats.innerHTML=`<div class="grid g4" style="margin-top:14px"><div class="kpi"><span>Total Clubs</span><strong>${d.totalClubs}</strong></div><div class="kpi"><span>Submitted</span><strong>${d.submitted}</strong></div><div class="kpi"><span>Pending</span><strong>${d.pending}</strong></div><div class="kpi"><span>Total Services</span><strong>${d.totalServices}</strong></div></div>`}catch(e){adminStats.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+
+async function loadAdminUsers(){try{showLoading('Loading users...');
+const d=await api('adminListUsers');
+adminUsersTab.innerHTML=`<div class="card"><div class="section-title"><h2>User Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openCreateUser()">+ Create User</button></div><div class="table-wrap"><table><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Club</th><th>Zone</th><th>Status</th><th>Action</th></tr>${d.users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${esc(u.role)}</td><td>${esc(u.clubId||'-')}</td><td>${esc(u.zoneId||'-')}</td><td>${u.active?'Active':'Inactive'}</td><td><div class="actions"><button class="btn ${u.active?'btn-danger':'btn-ok'}" onclick="setUserActive('${esc(u.userId)}',${!u.active})">${u.active?'Deactivate':'Activate'}</button><button class="btn btn-light" onclick="resetPassword('${esc(u.userId)}','${esc(u.username)}')">Reset Password</button></div></td></tr>`).join('')}</table></div></div>`}catch(e){adminUsersTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+
+function openCreateUser(){showModal(`<div class="row"><h2>Create User</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Username</label><input id="cuUsername"></div><div class="field"><label>Password</label><input id="cuPassword" type="password"></div><div class="field"><label>Display Name</label><input id="cuDisplay"></div><div class="field"><label>Role</label><select id="cuRole" onchange="toggleUserRoleFields()"><option>CLUB</option><option>ZONE</option><option>ADMIN</option></select></div><div class="field" id="cuClubWrap"><label>Club ID</label><input id="cuClub"></div><div class="field" id="cuZoneWrap"><label>Zone ID</label><input id="cuZone"></div></div><button class="btn btn-primary" onclick="createUserNow()">Create User</button>`);
+toggleUserRoleFields()}
+
+function toggleUserRoleFields(){const role=cuRole.value;
+cuClubWrap.classList.toggle('hide',role!=='CLUB');
+cuZoneWrap.classList.toggle('hide',role==='ADMIN')}
+
+async function createUserNow(){try{showLoading('Creating user...');
+await api('adminCreateUser',{username:cuUsername.value,password:cuPassword.value,displayName:cuDisplay.value,role:cuRole.value,clubId:cuRole.value==='CLUB'?cuClub.value:'',zoneId:cuRole.value==='ADMIN'?'':cuZone.value});
+closeModal();
+await loadAdminUsers();
+alert('User created')}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function setUserActive(id,active){if(!confirm((active?'Activate':'Deactivate')+' this user?'))return;
+try{await api('adminSetUserActive',{userId:id,active});
+loadAdminUsers()}catch(e){alert(e.message)}}
+
+async function resetPassword(id,name){const p=prompt('New password for '+name+' (minimum 8 characters)');
+if(!p)return;
+try{await api('adminResetPassword',{userId:id,password:p});
+alert('Password reset')}catch(e){alert(e.message)}}
+
+async function loadAdminClubs(){try{showLoading('Loading clubs...');
+const d=await api('adminListClubs');
+adminClubsTab.innerHTML=`<div class="card"><div class="section-title"><h2>Club Management</h2><div class="spacer"></div><button class="btn btn-gold" onclick="openClubForm()">+ Add Club</button></div><div class="table-wrap"><table><tr><th>Club ID</th><th>Club Name</th><th>Zone</th><th>President</th><th>Secretary</th><th>Status</th><th>Action</th></tr>${d.clubs.map(c=>`<tr><td>${esc(c.ClubID)}</td><td>${esc(c.ClubName)}</td><td>${esc(c.ZoneID)} ${esc(c.ZoneName||'')}</td><td>${esc(c.PresidentName||'')}</td><td>${esc(c.SecretaryName||'')}</td><td>${esc(c.Active)}</td><td><button class="btn btn-light" onclick='openClubForm(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminClubsTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+
 function openClubForm(c={}){showModal(`<div class="row"><h2>${c.ClubID?'Edit':'Add'} Club</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club ID ${c.ClubID?'':'(blank = auto)'}</label><input id="acId" value="${esc(c.ClubID||'')}" ${c.ClubID?'disabled':''}></div><div class="field"><label>Club Name</label><input id="acName" value="${esc(c.ClubName||'')}"></div><div class="field"><label>Zone ID</label><input id="acZone" value="${esc(c.ZoneID||'')}"></div><div class="field"><label>Zone Name</label><input id="acZoneName" value="${esc(c.ZoneName||'')}"></div><div class="field"><label>Charter Date</label><input id="acCharter" type="date" value="${dateOnly(c.CharterDate)}"></div><div class="field"><label>President</label><input id="acPresident" value="${esc(c.PresidentName||'')}"></div><div class="field"><label>Secretary</label><input id="acSecretary" value="${esc(c.SecretaryName||'')}"></div><div class="field"><label>Email</label><input id="acEmail" value="${esc(c.ClubEmail||'')}"></div><div class="field"><label>Phone</label><input id="acPhone" value="${esc(c.ClubPhone||'')}"></div><div class="field"><label>Active</label><select id="acActive"><option value="TRUE" ${String(c.Active)!=='FALSE'?'selected':''}>TRUE</option><option value="FALSE" ${String(c.Active)==='FALSE'?'selected':''}>FALSE</option></select></div></div><button class="btn btn-primary" onclick="saveAdminClub()">Save Club</button>`)}
-async function saveAdminClub(){try{showLoading('Saving club...');await api('adminSaveClub',{ClubID:acId.value,ClubName:acName.value,ZoneID:acZone.value,ZoneName:acZoneName.value,CharterDate:acCharter.value,PresidentName:acPresident.value,SecretaryName:acSecretary.value,ClubEmail:acEmail.value,ClubPhone:acPhone.value,Active:acActive.value});closeModal();loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
-async function loadAdminMappings(){try{showLoading('Loading mappings...');const [m,u,c]=await Promise.all([api('adminListMappings'),api('adminListUsers'),api('adminListClubs')]);const zoneUsers=u.users.filter(x=>x.role==='ZONE'&&x.active);adminMappingTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone → Club Mapping</h2><div class="spacer"></div><button class="btn btn-gold" onclick='openMappingForm(${JSON.stringify(c.clubs)},${JSON.stringify(zoneUsers)})'>+ Add Mapping</button></div><div class="notice">एक Zone Chairperson को under मा सामान्यतया 4–8 clubs mapping गर्न सकिन्छ। Zone Chairperson login भएपछि यही mapping अनुसार clubs मात्र देखिन्छन्।</div><div class="table-wrap"><table><tr><th>Zone</th><th>Club</th><th>Chairperson User ID</th><th>Status</th><th>Action</th></tr>${m.mappings.map(x=>`<tr><td>${esc(x.ZoneID)} ${esc(x.ZoneName||'')}</td><td>${esc(x.ClubName)} (${esc(x.ClubID)})</td><td>${esc(x.ChairpersonUserID||'-')}</td><td>${esc(x.Active)}</td><td><button class="btn ${String(x.Active)==='TRUE'?'btn-danger':'btn-ok'}" onclick="setMappingActive('${esc(x.MapID)}',${String(x.Active)!=='TRUE'})">${String(x.Active)==='TRUE'?'Deactivate':'Activate'}</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminMappingTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
-function openMappingForm(clubs,zoneUsers){showModal(`<div class="row"><h2>Add Zone Mapping</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club</label><select id="amClub" onchange="fillZoneFromClub()">${clubs.map(c=>`<option value="${esc(c.ClubID)}" data-zone="${esc(c.ZoneID)}" data-zname="${esc(c.ZoneName||'')}">${esc(c.ClubName)} (${esc(c.ClubID)})</option>`).join('')}</select></div><div class="field"><label>Zone Chairperson</label><select id="amChair"><option value="">-- Select --</option>${zoneUsers.map(u=>`<option value="${esc(u.userId)}" data-zone="${esc(u.zoneId)}">${esc(u.displayName)} — ${esc(u.zoneId)}</option>`).join('')}</select></div><div class="field"><label>Zone ID</label><input id="amZone"></div><div class="field"><label>Zone Name</label><input id="amZoneName"></div></div><button class="btn btn-primary" onclick="saveMapping()">Save Mapping</button>`);fillZoneFromClub()}
-function fillZoneFromClub(){const o=amClub.options[amClub.selectedIndex];amZone.value=o?.dataset.zone||'';amZoneName.value=o?.dataset.zname||''}
-async function saveMapping(){try{showLoading('Saving mapping...');await api('adminSaveMapping',{ClubID:amClub.value,ZoneID:amZone.value,ZoneName:amZoneName.value,ChairpersonUserID:amChair.value,Active:true});closeModal();loadAdminMappings()}catch(e){alert(e.message)}finally{hideLoading()}}
-async function setMappingActive(id,active){try{await api('adminSetMappingActive',{mapId:id,active});loadAdminMappings()}catch(e){alert(e.message)}}
+
+async function saveAdminClub(){try{showLoading('Saving club...');
+await api('adminSaveClub',{ClubID:acId.value,ClubName:acName.value,ZoneID:acZone.value,ZoneName:acZoneName.value,CharterDate:acCharter.value,PresidentName:acPresident.value,SecretaryName:acSecretary.value,ClubEmail:acEmail.value,ClubPhone:acPhone.value,Active:acActive.value});
+closeModal();
+loadAdminClubs()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+/* =========================================================
+   ADMIN: ZONE CHAIRPERSON MASTER
+   Exact columns from District Excel
+========================================================= */
+
+async function loadAdminZoneChairpersons() {
+  try {
+    showLoading(
+      'Loading Zone Chairperson master...'
+    );
+
+    const data = await api(
+      'adminListZoneChairpersons'
+    );
+
+    adminZonechairsTab.innerHTML = `
+      <div class="card">
+        <div class="section-title">
+          <h2>Zone Chairperson Master</h2>
+
+          <div class="spacer"></div>
+
+          <button
+            class="btn btn-light"
+            onclick="openZoneChairImport()"
+          >
+            Paste Excel Data
+          </button>
+
+          <button
+            class="btn btn-gold"
+            onclick="openZoneChairForm()"
+          >
+            + Add Record
+          </button>
+        </div>
+
+        <div class="notice ok">
+          Zone ID | Official Title | Start Date | End Date |
+          Member ID | Full Name | Personal Email | Mobile
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Zone ID</th>
+                <th>Official Title</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Member ID</th>
+                <th>Full Name</th>
+                <th>Personal Email</th>
+                <th>Mobile</th>
+                <th>Term</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${data.rows.map(row => `
+                <tr>
+                  <td>${esc(row['Zone ID'])}</td>
+                  <td>${esc(row['Official Title'])}</td>
+                  <td>${esc(dateOnly(row['Start Date']) || row['Start Date'] || '')}</td>
+                  <td>${esc(dateOnly(row['End Date']) || row['End Date'] || '')}</td>
+                  <td>${esc(row['Member ID'])}</td>
+                  <td>${esc(row['Full Name'])}</td>
+                  <td>${esc(row['Personal Email'])}</td>
+                  <td>${esc(row['Mobile'])}</td>
+
+                  <td>
+                    <span class="status ${
+                      row.TermStatus === 'CURRENT'
+                        ? 'st-SUBMITTED'
+                        : 'st-PENDING'
+                    }">
+                      ${esc(row.TermStatus)}
+                    </span>
+                  </td>
+
+                  <td>
+                    <button
+                      class="btn btn-light"
+                      onclick='openZoneChairForm(${JSON.stringify(row).replace(/'/g, "&#39;")})'
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    adminZonechairsTab.innerHTML = `
+      <div class="notice error">
+        ${esc(error.message)}
+      </div>
+    `;
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
+function openZoneChairForm(row = {}) {
+  const startDate =
+    dateOnly(row['Start Date']) ||
+    '';
+
+  const endDate =
+    dateOnly(row['End Date']) ||
+    '';
+
+  showModal(`
+    <div class="row">
+      <h2>
+        ${row['Member ID'] ? 'Edit' : 'Add'}
+        Zone Chairperson
+      </h2>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <input
+      id="zcOriginalMemberId"
+      type="hidden"
+      value="${esc(row['Member ID'] || '')}"
+    >
+
+    <input
+      id="zcOriginalStartDate"
+      type="hidden"
+      value="${esc(startDate)}"
+    >
+
+    <div class="grid g2">
+      <div class="field">
+        <label>Zone ID</label>
+        <input
+          id="zcZoneId"
+          value="${esc(row['Zone ID'] || '')}"
+          placeholder="Example: Zone I"
+        >
+      </div>
+
+      <div class="field">
+        <label>Official Title</label>
+        <input
+          id="zcOfficialTitle"
+          value="${esc(row['Official Title'] || 'Zone Chairperson')}"
+        >
+      </div>
+
+      <div class="field">
+        <label>Start Date</label>
+        <input
+          id="zcStartDate"
+          type="date"
+          value="${esc(startDate)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>End Date</label>
+        <input
+          id="zcEndDate"
+          type="date"
+          value="${esc(endDate)}"
+        >
+      </div>
+
+      <div class="field">
+        <label>Member ID</label>
+        <input
+          id="zcMemberId"
+          value="${esc(row['Member ID'] || '')}"
+        >
+      </div>
+
+      <div class="field">
+        <label>Full Name</label>
+        <input
+          id="zcFullName"
+          value="${esc(row['Full Name'] || '')}"
+        >
+      </div>
+
+      <div class="field">
+        <label>Personal Email</label>
+        <input
+          id="zcPersonalEmail"
+          type="email"
+          value="${esc(row['Personal Email'] || '')}"
+        >
+      </div>
+
+      <div class="field">
+        <label>Mobile</label>
+        <input
+          id="zcMobile"
+          value="${esc(row['Mobile'] || '')}"
+        >
+      </div>
+    </div>
+
+    <button
+      class="btn btn-primary"
+      onclick="saveZoneChairpersonRecord()"
+    >
+      Save Record
+    </button>
+  `);
+
+}
+
+async function saveZoneChairpersonRecord() {
+  try {
+    showLoading(
+      'Saving Zone Chairperson...'
+    );
+
+    await api(
+      'adminSaveZoneChairperson',
+      {
+        originalMemberId:
+          zcOriginalMemberId.value,
+
+        originalStartDate:
+          zcOriginalStartDate.value,
+
+        'Zone ID':
+          zcZoneId.value,
+
+        'Official Title':
+          zcOfficialTitle.value,
+
+        'Start Date':
+          zcStartDate.value,
+
+        'End Date':
+          zcEndDate.value,
+
+        'Member ID':
+          zcMemberId.value,
+
+        'Full Name':
+          zcFullName.value,
+
+        'Personal Email':
+          zcPersonalEmail.value,
+
+        'Mobile':
+          zcMobile.value
+      }
+    );
+
+    closeModal();
+
+    await loadAdminZoneChairpersons();
+
+    alert(
+      'Zone Chairperson record saved.'
+    );
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
+function openZoneChairImport() {
+  showModal(`
+    <div class="row">
+      <h2>Paste Zone Chairperson Excel Data</h2>
+
+      <div class="spacer"></div>
+
+      <button
+        class="btn btn-light"
+        onclick="closeModal()"
+      >
+        Close
+      </button>
+    </div>
+
+    <div class="notice">
+      Excel बाट 8 columns select गरेर Copy गर्नुहोस् र तल Paste गर्नुहोस्।
+      Header row भए automatically skip हुन्छ।
+    </div>
+
+    <div class="field">
+      <label>
+        Zone ID | Official Title | Start Date | End Date |
+        Member ID | Full Name | Personal Email | Mobile
+      </label>
+
+      <textarea
+        id="zoneChairPaste"
+        style="min-height:260px"
+        placeholder="Zone I&#9;Zone Chairperson&#9;7/8/2026&#9;6/30/2027&#9;5158955&#9;Full Name&#9;email@gmail.com&#9;98XXXXXXXX"
+      ></textarea>
+    </div>
+
+    <div class="notice error">
+      Import गर्दा current Zone_Chairpersons master replace हुन्छ।
+    </div>
+
+    <button
+      class="btn btn-primary"
+      onclick="importZoneChairExcel()"
+    >
+      Import / Replace Master
+    </button>
+  `);
+
+}
+
+async function importZoneChairExcel() {
+  const raw =
+    zoneChairPaste.value.trim();
+
+  if (!raw) {
+    alert(
+      'Paste Excel data first.'
+    );
+
+    return;
+
+  }
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map(line => line.trimEnd())
+    .filter(Boolean);
+
+  const parsedRows = lines
+    .map(line => line.split('\t'))
+    .filter(columns => columns.length >= 8);
+
+  if (!parsedRows.length) {
+    alert(
+      '8-column Excel data could not be detected.'
+    );
+
+    return;
+
+  }
+
+  const firstCell = String(
+    parsedRows[0][0] ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
+
+  const dataRows =
+    firstCell === 'zone id'
+      ? parsedRows.slice(1)
+      : parsedRows;
+
+  const rows = dataRows.map(
+    columns => ({
+      'Zone ID': columns[0],
+      'Official Title': columns[1],
+      'Start Date': columns[2],
+      'End Date': columns[3],
+      'Member ID': columns[4],
+      'Full Name': columns[5],
+      'Personal Email': columns[6],
+      'Mobile': columns[7]
+    })
+  );
+
+  if (
+    !confirm(
+      rows.length +
+      ' records import गरेर current master replace गर्ने?'
+    )
+  ) {
+    return;
+
+  }
+
+  try {
+    showLoading(
+      'Importing Zone Chairperson master...'
+    );
+
+    const result = await api(
+      'adminImportZoneChairpersons',
+      {
+        rows: rows,
+        replaceMaster: true
+      }
+    );
+
+    closeModal();
+
+    await loadAdminZoneChairpersons();
+
+    alert(
+      result.imported +
+      ' records imported successfully.'
+    );
+
+  } catch (error) {
+    alert(
+      error.message
+    );
+
+  } finally {
+    hideLoading();
+
+  }
+}
+
+async function loadAdminMappings(){try{showLoading('Loading mappings...');
+const [m,u,c]=await Promise.all([api('adminListMappings'),api('adminListUsers'),api('adminListClubs')]);
+const zoneUsers=u.users.filter(x=>x.role==='ZONE'&&x.active);
+adminMappingTab.innerHTML=`<div class="card"><div class="section-title"><h2>Zone → Club Mapping</h2><div class="spacer"></div><button class="btn btn-gold" onclick='openMappingForm(${JSON.stringify(c.clubs)},${JSON.stringify(zoneUsers)})'>+ Add Mapping</button></div><div class="notice">एक Zone Chairperson को under मा सामान्यतया 4–8 clubs mapping गर्न सकिन्छ। Zone Chairperson login भएपछि यही mapping अनुसार clubs मात्र देखिन्छन्।</div><div class="table-wrap"><table><tr><th>Zone</th><th>Club</th><th>Chairperson User ID</th><th>Status</th><th>Action</th></tr>${m.mappings.map(x=>`<tr><td>${esc(x.ZoneID)} ${esc(x.ZoneName||'')}</td><td>${esc(x.ClubName)} (${esc(x.ClubID)})</td><td>${esc(x.ChairpersonUserID||'-')}</td><td>${esc(x.Active)}</td><td><button class="btn ${String(x.Active)==='TRUE'?'btn-danger':'btn-ok'}" onclick="setMappingActive('${esc(x.MapID)}',${String(x.Active)!=='TRUE'})">${String(x.Active)==='TRUE'?'Deactivate':'Activate'}</button></td></tr>`).join('')}</table></div></div>`}catch(e){adminMappingTab.innerHTML=`<div class="notice error">${esc(e.message)}</div>`}finally{hideLoading()}}
+
+function openMappingForm(clubs,zoneUsers){showModal(`<div class="row"><h2>Add Zone Mapping</h2><div class="spacer"></div><button class="btn btn-light" onclick="closeModal()">Close</button></div><div class="grid g2"><div class="field"><label>Club</label><select id="amClub" onchange="fillZoneFromClub()">${clubs.map(c=>`<option value="${esc(c.ClubID)}" data-zone="${esc(c.ZoneID)}" data-zname="${esc(c.ZoneName||'')}">${esc(c.ClubName)} (${esc(c.ClubID)})</option>`).join('')}</select></div><div class="field"><label>Zone Chairperson</label><select id="amChair"><option value="">-- Select --</option>${zoneUsers.map(u=>`<option value="${esc(u.userId)}" data-zone="${esc(u.zoneId)}">${esc(u.displayName)} — ${esc(u.zoneId)}</option>`).join('')}</select></div><div class="field"><label>Zone ID</label><input id="amZone"></div><div class="field"><label>Zone Name</label><input id="amZoneName"></div></div><button class="btn btn-primary" onclick="saveMapping()">Save Mapping</button>`);
+fillZoneFromClub()}
+
+function fillZoneFromClub(){const o=amClub.options[amClub.selectedIndex];
+amZone.value=o?.dataset.zone||'';
+amZoneName.value=o?.dataset.zname||''}
+
+async function saveMapping(){try{showLoading('Saving mapping...');
+await api('adminSaveMapping',{ClubID:amClub.value,ZoneID:amZone.value,ZoneName:amZoneName.value,ChairpersonUserID:amChair.value,Active:true});
+closeModal();
+loadAdminMappings()}catch(e){alert(e.message)}finally{hideLoading()}}
+
+async function setMappingActive(id,active){try{await api('adminSetMappingActive',{mapId:id,active});
+loadAdminMappings()}catch(e){alert(e.message)}}
 
 restore();
 </script>
