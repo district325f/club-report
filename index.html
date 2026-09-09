@@ -6,7 +6,7 @@
 <title>Lions Club Digital Reporting</title>
 <!--
   LIONS CLUB DIGITAL REPORTING & ZONE REPORTING SYSTEM
-  FINAL BASE v1.6.2
+  FINAL BASE v1.6.3
   READABLE / MULTI-LINE SOURCE
 -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -3015,12 +3015,20 @@ async function loadAdminUsers() {
                       ${user.active ? 'Deactivate' : 'Activate'}
                     </button>
 
-                    <button
-                      class="btn btn-light"
-                      onclick="resetPassword('${esc(user.userId)}', '${esc(user.username)}')"
-                    >
-                      Reset Password
-                    </button>
+                    ${String(user.role || '').toUpperCase() === 'ADMIN'
+                      ? `<button
+                           class="btn btn-light"
+                           onclick="adminTab('security', this)"
+                         >
+                           Account Security
+                         </button>`
+                      : `<button
+                           class="btn btn-light"
+                           onclick="resetPassword('${esc(user.userId)}', '${esc(user.username)}')"
+                         >
+                           Reset Password
+                         </button>`
+                    }
                   </div>
                 </td>
               </tr>
@@ -3069,7 +3077,7 @@ try{await api('adminSetUserActive',{userId:id,active});
 
 loadAdminUsers()}catch(e){alert(e.message)}}
 
-async function resetPassword(id,name){const p=prompt('New password for '+name+' (minimum 8 characters)');
+async function resetPassword(id,name){const p=prompt('New password for '+name+' (minimum 6 characters)');
 
 if(!p)return;
 
@@ -3183,7 +3191,7 @@ async function loadAdminAccountSecurity() {
         </div>
 
         <div class="notice">
-          Minimum 10 characters. Password change भएपछि सबै Admin sessions revoke हुन्छन् र पुनः login गर्नुपर्छ।
+          Minimum 6 characters. Password change भएपछि सबै Admin sessions revoke हुन्छन् र पुनः login गर्नुपर्छ।
         </div>
 
         <button
@@ -3281,10 +3289,10 @@ async function changeAdminPassword() {
 
   if (
     newPassword.length <
-    10
+    6
   ) {
     alert(
-      'New Admin password must be at least 10 characters.'
+      'New Admin password must be at least 6 characters.'
     );
     return;
   }
